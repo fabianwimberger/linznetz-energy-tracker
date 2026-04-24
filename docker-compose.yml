@@ -1,7 +1,7 @@
 services:
   app:
-    image: ghcr.io/fabianwimberger/energy-tracker:latest
-    container_name: energy-tracker
+    image: ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
+    container_name: linznetz-energy-tracker
     restart: unless-stopped
     ports:
       - "${PORT:-8000}:8000"

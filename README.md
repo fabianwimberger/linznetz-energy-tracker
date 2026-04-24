@@ -1,7 +1,7 @@
 # Energy Tracker
 
-[![CI](https://github.com/fabianwimberger/energy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianwimberger/energy-tracker/actions)
-[![Docker](https://github.com/fabianwimberger/energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/energy-tracker/pkgs/container/energy-tracker)
+[![CI](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/actions)
+[![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A self-hosted dashboard for visualizing electricity consumption from Austrian
@@ -42,8 +42,8 @@ Pre-built images support both **AMD64** and **ARM64** architectures.
 
 ```bash
 # Clone the repository for docker-compose.yml
-git clone https://github.com/fabianwimberger/energy-tracker.git
-cd energy-tracker
+git clone https://github.com/fabianwimberger/linznetz-energy-tracker.git
+cd linznetz-energy-tracker
 
 # Run with pre-built image
 docker compose up -d
@@ -55,20 +55,20 @@ docker compose up -d
 
 ```bash
 docker run -d \
-  --name energy-tracker \
+  --name linznetz-energy-tracker \
   --restart unless-stopped \
   -p 8000:8000 \
-  -v energy-tracker-data:/app/data \
+  -v linznetz-energy-tracker-data:/app/data \
   -e TZ=Europe/Vienna \
-  ghcr.io/fabianwimberger/energy-tracker:latest
+  ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
 ```
 
 ### Option 2: Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/fabianwimberger/energy-tracker.git
-cd energy-tracker
+git clone https://github.com/fabianwimberger/linznetz-energy-tracker.git
+cd linznetz-energy-tracker
 
 # Copy the override file to build locally
 cp docker-compose.override.yml.example docker-compose.override.yml
@@ -86,7 +86,7 @@ make up
 
 ### Available Image Tags
 
-The following image tags are available from `ghcr.io/fabianwimberger/energy-tracker`:
+The following image tags are available from `ghcr.io/fabianwimberger/linznetz-energy-tracker`:
 
 | Tag | Description |
 |-----|-------------|
@@ -104,8 +104,8 @@ docker compose pull
 docker compose up -d
 
 # Or with docker run
-docker pull ghcr.io/fabianwimberger/energy-tracker:latest
-docker restart energy-tracker
+docker pull ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
+docker restart linznetz-energy-tracker
 ```
 
 ## Configuration

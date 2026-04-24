@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: energy-tracker:local
+    image: linznetz-energy-tracker:local
     # You can also override ports, environment, etc.
     # ports:
     #   - "8001:8000"
