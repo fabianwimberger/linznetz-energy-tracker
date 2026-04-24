@@ -1,7 +1,7 @@
 # Core dependencies
 fastapi==0.115.12
 uvicorn[standard]==0.34.2
-pydantic==2.11.3
+pydantic==2.13.3
 
 # Database (Async)
 aiosqlite==0.21.0
