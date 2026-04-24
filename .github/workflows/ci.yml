@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Format check with ruff
+        run: ruff format --check .
+
+      - name: Type check with mypy
+        run: mypy . --ignore-missing-imports
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  docker-amd64:
+    name: Docker Build (amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image (amd64)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          tags: energy-tracker:test-amd64
+          cache-from: type=gha,scope=linux-amd64
+          cache-to: type=gha,mode=max,scope=linux-amd64
+          platforms: linux/amd64
+          load: true
+
+      - name: Test container starts
+        run: docker run --rm energy-tracker:test-amd64 python3 --version
+
+      - name: Verify healthcheck endpoint
+        run: |
+          docker run -d --name energy-test -p 8000:8000 energy-tracker:test-amd64
+          sleep 5
+          curl -f http://localhost:8000/api/latest-date || true
+          docker stop energy-test
+
+  docker-arm64:
+    name: Docker Build (arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image (arm64)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          tags: energy-tracker:test-arm64
+          cache-from: type=gha,scope=linux-arm64
+          cache-to: type=gha,mode=max,scope=linux-arm64
+          platforms: linux/arm64
+          load: true
+
+      - name: Test container starts
+        run: docker run --rm energy-tracker:test-arm64 python3 --version

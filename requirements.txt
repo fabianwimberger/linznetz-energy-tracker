@@ -1,0 +1,15 @@
+# Core dependencies
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic==2.11.3
+
+# Database (Async)
+aiosqlite==0.21.0
+sqlalchemy==2.0.40
+
+# Data processing
+python-dateutil==2.9.0
+
+# File handling
+python-multipart==0.0.20
+aiofiles==24.1.0

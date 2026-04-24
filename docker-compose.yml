@@ -1,0 +1,16 @@
+services:
+  app:
+    image: ghcr.io/fabianwimberger/energy-tracker:latest
+    container_name: energy-tracker
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - energy_data:/app/data
+    environment:
+      TZ: ${TZ:-Europe/Vienna}
+      DATA_DIR: /app/data
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+volumes:
+  energy_data:

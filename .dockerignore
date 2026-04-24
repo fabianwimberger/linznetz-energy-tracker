@@ -1,0 +1,68 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data and logs
+*.log
+*.db
+*.sqlite
+*.sqlite3
+data/
+csv_uploads/
+
+# Documentation
+*.md
+README*
+
+# Vendor files (will be downloaded during build)
+static/vendor/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Development
+.env.local
+.env.development
+*.test
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+Makefile
+docker-compose*.yml
+
