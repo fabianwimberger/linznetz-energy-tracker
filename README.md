@@ -1,4 +1,4 @@
-# Energy Tracker
+# LinzNetz Energy Tracker
 
 [![CI](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/actions)
 [![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
@@ -16,10 +16,9 @@ smart meter (Smart Meter / Intelligenter Zähler) CSV exports.
 
 Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
 files — either quarter-hourly intervals or daily totals. These exports are
-accurate, but reading them in a spreadsheet to spot trends, compare seasons, or
-estimate your next bill is tedious. Energy Tracker turns those CSV drops into
-interactive charts with moving averages and simple forecasts so you can actually
-see what is happening.
+accurate, but spotting trends or comparing seasons in a spreadsheet is tedious.
+Energy Tracker imports the CSVs and gives you interactive charts with moving
+averages and simple forecasts.
 
 ## Features
 
