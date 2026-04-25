@@ -1,24 +1,34 @@
 # LinzNetz Energy Tracker
 
 [![CI](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/actions)
+[![codecov](https://codecov.io/gh/fabianwimberger/linznetz-energy-tracker/branch/main/graph/badge.svg)](https://codecov.io/gh/fabianwimberger/linznetz-energy-tracker)
 [![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A self-hosted dashboard for visualizing electricity consumption from Austrian
 smart meter (Smart Meter / Intelligenter Zähler) CSV exports.
 
+## Background
+
+| | LinzNetz Energy Tracker | [SMA Energy Tracker](https://github.com/fabianwimberger/sma-energy-tracker) |
+|---|---|---|
+| **Data source** | CSV exports from your grid operator | SMA JSON REST API |
+| **How it gets data** | You download and upload CSV files | Polls the SMA automatically |
+| **Best for** | Historical analysis, billing checks | Live monitoring, real-time charts |
+
+If your grid operator only gives you CSV exports — or you want to keep historical
+data without a SMA device on the network — this is the right one.
+
 <p align="center">
-  <img src="assets/screenshot.png" width="100%" alt="Energy Tracker Dashboard">
+  <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
   <br><em>Daily view with 90-day moving average and seasonal trends</em>
 </p>
-
-## Background
 
 Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
 files — either quarter-hourly intervals or daily totals. These exports are
 accurate, but spotting trends or comparing seasons in a spreadsheet is tedious.
-Energy Tracker imports the CSVs and gives you interactive charts with moving
-averages and simple forecasts.
+LinzNetz Energy Tracker imports the CSVs and gives you interactive charts with
+moving averages and simple forecasts.
 
 ## Features
 
