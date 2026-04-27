@@ -8,7 +8,7 @@ aiosqlite==0.21.0
 sqlalchemy==2.0.49
 
 # Data processing
-python-dateutil==2.9.0
+python-dateutil==2.9.0.post0
 
 # File handling
 python-multipart==0.0.26
