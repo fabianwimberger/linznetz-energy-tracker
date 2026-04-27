@@ -1,6 +1,6 @@
 # Core dependencies
 fastapi==0.136.1
-uvicorn[standard]==0.34.2
+uvicorn[standard]==0.46.0
 pydantic==2.13.3
 
 # Database (Async)
