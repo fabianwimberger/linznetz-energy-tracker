@@ -4,7 +4,7 @@ uvicorn[standard]==0.34.2
 pydantic==2.13.3
 
 # Database (Async)
-aiosqlite==0.21.0
+aiosqlite==0.22.1
 sqlalchemy==2.0.49
 
 # Data processing
