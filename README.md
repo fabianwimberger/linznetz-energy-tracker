@@ -21,7 +21,7 @@ data without a SMA device on the network — this is the right one.
 
 <p align="center">
   <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
-  <br><em>Daily view with 90-day moving average and seasonal trends</em>
+  <br><em>Daily view with 90-day moving average, seasonal trends, and the new "Fetch latest from LinzNetz" button</em>
 </p>
 
 Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
@@ -120,16 +120,40 @@ docker restart linznetz-energy-tracker
 ## Configuration
 
 All configuration is via environment variables. Defaults are fine for a local
-deployment.
+deployment. For Docker Compose, copy `.env.example` to `.env` and edit the
+values you care about — Compose loads it automatically, and `.env` is
+gitignored so secrets stay local:
 
-| Variable       | Default           | Purpose                                           |
-| -------------- | ----------------- | ------------------------------------------------- |
-| `PORT`         | `8000`            | Host port for the web UI                          |
-| `TZ`           | `Europe/Vienna`   | Container timezone                                |
-| `DATA_DIR`     | `/app/data`       | Directory for SQLite database and upload staging  |
-| `DATABASE_URL` | derived           | SQLAlchemy async URL (override to use a custom path) |
-| `STATIC_DIR`   | `/app/static`     | Directory served at `/static`                     |
-| `CORS_ORIGINS` | `*`               | Comma-separated allowed origins                   |
+```bash
+cp .env.example .env
+$EDITOR .env
+docker compose up -d
+```
+
+| Variable                 | Default           | Purpose                                                       |
+| ------------------------ | ----------------- | ------------------------------------------------------------- |
+| `PORT`                   | `8000`            | Host port for the web UI                                      |
+| `TZ`                     | `Europe/Vienna`   | Container timezone                                            |
+| `DATA_DIR`               | `/app/data`       | Directory for SQLite database and upload staging              |
+| `DATABASE_URL`           | derived           | SQLAlchemy async URL (override to use a custom path)          |
+| `STATIC_DIR`             | `/app/static`     | Directory served at `/static`                                 |
+| `CORS_ORIGINS`           | `*`               | Comma-separated allowed origins                               |
+| `LINZNETZ_USERNAME`      | unset             | Portal username; enables the "Fetch latest" button if set     |
+| `LINZNETZ_PASSWORD`      | unset             | Portal password; required alongside `LINZNETZ_USERNAME`       |
+| `LINZNETZ_LOOKBACK_DAYS` | `7`               | How many past days the fetch button checks for missing data   |
+
+### Auto-fetch from the LinzNetz portal
+
+If `LINZNETZ_USERNAME` and `LINZNETZ_PASSWORD` are set, the UI shows a
+**Fetch latest from LinzNetz** button. It logs into the portal and
+downloads quarter-hour CSVs for any day in the last `LINZNETZ_LOOKBACK_DAYS`
+that doesn't yet have all 96 quarter-hour slots in the database, then
+imports them. The portal often pushes partial days; those get re-fetched
+on subsequent presses until complete. Days the portal hasn't published
+yet are reported as skipped.
+
+Credentials live only in the container's environment; they are not
+persisted to disk or the database.
 
 ## Production Deployment
 

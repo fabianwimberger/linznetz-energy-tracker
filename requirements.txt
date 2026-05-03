@@ -13,3 +13,6 @@ python-dateutil==2.9.0.post0
 # File handling
 python-multipart==0.0.27
 aiofiles==25.1.0
+
+# LinzNetz portal client
+httpx==0.28.1

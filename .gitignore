@@ -69,3 +69,6 @@ static/vendor/*.css
 *.bak
 *.swp
 *~
+
+# Browser session captures (often contain credentials)
+*.har
