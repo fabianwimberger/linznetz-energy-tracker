@@ -276,7 +276,9 @@ async def fetch_from_linznetz(request: Request):
             except NoDataError:
                 results.append(
                     ImportResult(
-                        status="skipped", filename=day_str, error="No data available yet."
+                        status="skipped",
+                        filename=day_str,
+                        error="No data available yet.",
                     )
                 )
                 continue
