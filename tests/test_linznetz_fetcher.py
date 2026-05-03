@@ -34,7 +34,7 @@ class TestExtract:
             _extract(r"x", "y", "foo")
 
     def test_unescape(self):
-        assert _extract(r"(.&quot;.)", 'a&quot;b', "q") == 'a"b'
+        assert _extract(r"(.&quot;.)", "a&quot;b", "q") == 'a"b'
 
 
 class TestExtractViewState:
@@ -98,7 +98,7 @@ class TestParseInitialState:
             '<input name="myForm:grid_eval:selectedClass" value="x">'
             '<input name="myForm:grid_eval:selectedClass" id="myForm:0" value="ConsumQuarter">'
             '<input name="myForm:grid_eval:selectedClass" id="myForm:1" value="ConsumDaily">'
-            f'{extras}'
+            f"{extras}"
         )
 
     def test_full(self):
@@ -165,10 +165,12 @@ class TestLoginAndGetConsumption:
     @pytest.mark.asyncio
     async def test_already_logged_in(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.get = AsyncMock(return_value=MagicMock(
-            text='<form name="myForm1">consumption.jsf',
-            url="https://services.linznetz.at/verbrauchsdateninformation/consumption.jsf",
-        ))
+        f._client.get = AsyncMock(
+            return_value=MagicMock(
+                text='<form name="myForm1">consumption.jsf',
+                url="https://services.linznetz.at/verbrauchsdateninformation/consumption.jsf",
+            )
+        )
         html, url = await f._login_and_get_consumption()
         assert "myForm1" in html
         assert "consumption.jsf" in url
@@ -180,10 +182,12 @@ class TestLoginAndGetConsumption:
             text='<form name="myForm1">consumption.jsf',
             url="https://services.linznetz.at/verbrauchsdateninformation/consumption.jsf",
         )
-        f._client.get = AsyncMock(return_value=MagicMock(
-            text='<form action="https://idp/login-actions/authenticate">login</form>',
-            url="https://idp/login-actions/authenticate",
-        ))
+        f._client.get = AsyncMock(
+            return_value=MagicMock(
+                text='<form action="https://idp/login-actions/authenticate">login</form>',
+                url="https://idp/login-actions/authenticate",
+            )
+        )
         f._client.post = AsyncMock(return_value=login_resp)
         html, url = await f._login_and_get_consumption()
         assert "myForm1" in html
@@ -192,16 +196,21 @@ class TestLoginAndGetConsumption:
     @pytest.mark.asyncio
     async def test_wrong_landing_page(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.get = AsyncMock(return_value=MagicMock(text="ok", url="https://other"))
+        f._client.get = AsyncMock(
+            return_value=MagicMock(text="ok", url="https://other")
+        )
         with pytest.raises(FetchError, match="unexpected landing page"):
             await f._login_and_get_consumption()
 
     @pytest.mark.asyncio
     async def test_no_form(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.get = AsyncMock(return_value=MagicMock(
-            text="consumption.jsf", url="https://services.linznetz.at/consumption.jsf"
-        ))
+        f._client.get = AsyncMock(
+            return_value=MagicMock(
+                text="consumption.jsf",
+                url="https://services.linznetz.at/consumption.jsf",
+            )
+        )
         with pytest.raises(FetchError, match="consumption form not found"):
             await f._login_and_get_consumption()
 
@@ -210,13 +219,15 @@ class TestSelectGranularity:
     @pytest.mark.asyncio
     async def test_success(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text=(
-                '<update id="myForm1"><![CDATA[<input name="x:selectedClass" value="KWH">]]></update>'
-                '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>'
-            ),
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text=(
+                    '<update id="myForm1"><![CDATA[<input name="x:selectedClass" value="KWH">]]></update>'
+                    '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>'
+                ),
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -227,7 +238,9 @@ class TestSelectGranularity:
             to_date_source="ts",
             unit_field=None,
         )
-        new_state = await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
+        new_state = await f._select_granularity(
+            state, "quarter", date(2024, 1, 1), date(2024, 1, 2)
+        )
         assert new_state.view_state == "vs2"
         assert new_state.unit_field == "x:selectedClass"
 
@@ -245,15 +258,19 @@ class TestSelectGranularity:
             unit_field=None,
         )
         with pytest.raises(FetchError, match="granularity ConsumQuarter not in radios"):
-            await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
+            await f._select_granularity(
+                state, "quarter", date(2024, 1, 1), date(2024, 1, 2)
+            )
 
     @pytest.mark.asyncio
     async def test_no_myform1_update(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text='<update id="other">x</update>',
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text='<update id="other">x</update>',
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -265,17 +282,21 @@ class TestSelectGranularity:
             unit_field=None,
         )
         with pytest.raises(FetchError, match="did not contain myForm1 update"):
-            await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
+            await f._select_granularity(
+                state, "quarter", date(2024, 1, 1), date(2024, 1, 2)
+            )
 
 
 class TestSetCalendar:
     @pytest.mark.asyncio
     async def test_success(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text='<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>',
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text='<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>',
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -310,10 +331,12 @@ class TestSetDates:
     @pytest.mark.asyncio
     async def test_success(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text='<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs_next]]></update>',
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text='<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs_next]]></update>',
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -347,10 +370,12 @@ class TestClickDisplay:
     @pytest.mark.asyncio
     async def test_no_data(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text="<div>no export here</div>",
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text="<div>no export here</div>",
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -362,18 +387,22 @@ class TestClickDisplay:
             unit_field=None,
         )
         with pytest.raises(NoDataError, match="no data available"):
-            await f._click_display(state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH")
+            await f._click_display(
+                state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH"
+            )
 
     @pytest.mark.asyncio
     async def test_success(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            text=(
-                '<div id="myForm1:list"><a id="myForm1:exportAreaID:0">CSV-Datei exportieren</a></div>'
-                '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>'
-            ),
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                text=(
+                    '<div id="myForm1:list"><a id="myForm1:exportAreaID:0">CSV-Datei exportieren</a></div>'
+                    '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[vs2]]></update>'
+                ),
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -384,7 +413,9 @@ class TestClickDisplay:
             to_date_source=None,
             unit_field=None,
         )
-        vs, btn = await f._click_display(state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH")
+        vs, btn = await f._click_display(
+            state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH"
+        )
         assert vs == "vs2"
         assert btn == "myForm1:exportAreaID:0"
 
@@ -393,11 +424,13 @@ class TestDownloadCsv:
     @pytest.mark.asyncio
     async def test_csv_response(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            content=b"a,b",
-            headers={"content-type": "text/csv"},
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                content=b"a,b",
+                headers={"content-type": "text/csv"},
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -417,11 +450,13 @@ class TestDownloadCsv:
     @pytest.mark.asyncio
     async def test_html_response(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            content=b"<html>",
-            headers={"content-type": "text/html"},
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                content=b"<html>",
+                headers={"content-type": "text/html"},
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -434,20 +469,28 @@ class TestDownloadCsv:
         )
         with pytest.raises(FetchError, match="expected CSV, got HTML"):
             await f._download_csv(
-                state, "vs2", "btn", date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH"
+                state,
+                "vs2",
+                "btn",
+                date(2024, 1, 1),
+                date(2024, 1, 2),
+                "quarter",
+                "KWH",
             )
 
     @pytest.mark.asyncio
     async def test_filename_from_header(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.post = AsyncMock(return_value=MagicMock(
-            content=b"x",
-            headers={
-                "content-type": "text/csv",
-                "content-disposition": 'attachment; filename="my.csv"',
-            },
-            raise_for_status=lambda: None,
-        ))
+        f._client.post = AsyncMock(
+            return_value=MagicMock(
+                content=b"x",
+                headers={
+                    "content-type": "text/csv",
+                    "content-disposition": 'attachment; filename="my.csv"',
+                },
+                raise_for_status=lambda: None,
+            )
+        )
         state = FormState(
             view_state="vs1",
             granularity_field="gf",
@@ -487,8 +530,13 @@ class TestAmain:
         monkeypatch.delenv("LINZNETZ_USERNAME", raising=False)
         monkeypatch.delenv("LINZNETZ_PASSWORD", raising=False)
         args = argparse.Namespace(
-            username=None, password=None, date_from=None, date_to=None,
-            granularity="quarter", output=None, verbose=False,
+            username=None,
+            password=None,
+            date_from=None,
+            date_to=None,
+            granularity="quarter",
+            output=None,
+            verbose=False,
         )
         assert await _amain(args) == 2
         captured = capsys.readouterr()
@@ -520,8 +568,13 @@ class TestAmain:
         monkeypatch.setenv("LINZNETZ_USERNAME", "u")
         monkeypatch.setenv("LINZNETZ_PASSWORD", "p")
         args = argparse.Namespace(
-            username=None, password=None, date_from=None, date_to=None,
-            granularity="quarter", output=None, verbose=False,
+            username=None,
+            password=None,
+            date_from=None,
+            date_to=None,
+            granularity="quarter",
+            output=None,
+            verbose=False,
         )
         with patch.object(LinzNetzFetcher, "fetch", side_effect=NoDataError("no data")):
             assert await _amain(args) == 3
@@ -532,8 +585,13 @@ class TestAmain:
         monkeypatch.setenv("LINZNETZ_USERNAME", "u")
         monkeypatch.setenv("LINZNETZ_PASSWORD", "p")
         args = argparse.Namespace(
-            username=None, password=None, date_from=None, date_to=None,
-            granularity="quarter", output=None, verbose=False,
+            username=None,
+            password=None,
+            date_from=None,
+            date_to=None,
+            granularity="quarter",
+            output=None,
+            verbose=False,
         )
         with patch.object(LinzNetzFetcher, "fetch", side_effect=FetchError("boom")):
             assert await _amain(args) == 1

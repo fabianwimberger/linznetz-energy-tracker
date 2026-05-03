@@ -277,13 +277,13 @@ class LinzNetzFetcher:
     ) -> FormState:
         if not state.from_date_source or not state.to_date_source:
             raise FetchError("calendar widget script ids missing")
+        from_src = state.from_date_source
+        to_src = state.to_date_source
         vs = await self._set_calendar(
-            state, state.from_date_source, "changeFromDate", _fmt_de(date_from)
+            state, from_src, "changeFromDate", _fmt_de(date_from)
         )
         state2 = _replace_view_state(state, vs)
-        vs = await self._set_calendar(
-            state2, state2.to_date_source, "assignToDate", _fmt_de(date_to)
-        )
+        vs = await self._set_calendar(state2, to_src, "assignToDate", _fmt_de(date_to))
         return _replace_view_state(state2, vs)
 
     @staticmethod
