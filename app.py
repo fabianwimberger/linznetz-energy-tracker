@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Energy Analysis",
     description="Web application for graphical analysis of energy consumption.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,

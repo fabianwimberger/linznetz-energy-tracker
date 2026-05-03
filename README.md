@@ -21,7 +21,7 @@ data without a SMA device on the network — this is the right one.
 
 <p align="center">
   <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
-  <br><em>Daily view with 90-day moving average and seasonal trends</em>
+  <br><em>Daily view with 90-day moving average, seasonal trends, and the new "Fetch latest from LinzNetz" button</em>
 </p>
 
 Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
