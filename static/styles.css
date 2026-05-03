@@ -314,6 +314,29 @@ html, body {
     cursor: pointer;
 }
 
+.fetch-button {
+    appearance: none;
+    border: 1px solid var(--primary);
+    background: rgba(0, 212, 170, 0.08);
+    color: var(--primary);
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.fetch-button:hover:not(:disabled) {
+    background: var(--primary);
+    color: #0b0f14;
+}
+
+.fetch-button:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
 /* Status Messages */
 .status-list {
     max-height: 200px;

@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from csv_import import CSVProcessor, CSVImportError
 from db_init import init_database
+from linznetz_fetcher import FetchError, LinzNetzFetcher, NoDataError
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -41,6 +42,10 @@ STATIC_DIR = Path(os.getenv("STATIC_DIR", "/app/static"))
 CORS_ORIGINS = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()
 ]
+
+LINZNETZ_USERNAME = os.getenv("LINZNETZ_USERNAME")
+LINZNETZ_PASSWORD = os.getenv("LINZNETZ_PASSWORD")
+LINZNETZ_LOOKBACK_DAYS = int(os.getenv("LINZNETZ_LOOKBACK_DAYS", "7"))
 
 db_context: Dict[str, Any] = {}
 upload_tracker: MutableMapping[str, List[datetime]] = defaultdict(list)
@@ -207,6 +212,118 @@ async def upload_and_import_csv(request: Request, files: List[UploadFile] = File
             upload_tracker[ip] = [t for t in upload_tracker[ip] if t > cutoff]
             if not upload_tracker[ip]:
                 del upload_tracker[ip]
+
+    return results
+
+
+@api_router.post("/fetch", response_model=List[ImportResult])
+async def fetch_from_linznetz(request: Request):
+    """Pull missing quarter-hour data for the last LINZNETZ_LOOKBACK_DAYS days."""
+    if not LINZNETZ_USERNAME or not LINZNETZ_PASSWORD:
+        raise HTTPException(
+            status_code=503,
+            detail="LinzNetz credentials not configured (set LINZNETZ_USERNAME and LINZNETZ_PASSWORD)",
+        )
+
+    client_ip = request.client.host if request.client else "unknown"
+    now = datetime.now()
+    upload_tracker[client_ip] = [
+        t for t in upload_tracker[client_ip] if now - t < timedelta(hours=1)
+    ]
+    if len(upload_tracker[client_ip]) >= 50:
+        raise HTTPException(
+            status_code=429, detail="Too many requests. Please try again later."
+        )
+    upload_tracker[client_ip].append(now)
+
+    today = date.today()
+    candidates = sorted(
+        today - timedelta(days=i) for i in range(1, LINZNETZ_LOOKBACK_DAYS + 1)
+    )
+    # LinzNetz often pushes partial days, so a day is only "complete" when
+    # all 96 quarter-hour slots are present. Anything below gets re-fetched.
+    rows = await _fetch_data(
+        db_context["engine"],
+        """
+        SELECT DATE(reading_date_from) AS d
+        FROM energy_readings
+        WHERE DATE(reading_date_from) >= :start
+        GROUP BY DATE(reading_date_from)
+        HAVING COUNT(*) >= 96
+        """,
+        {"start": candidates[0].isoformat()},
+    )
+    complete = {row["d"] for row in rows}
+    missing = [d for d in candidates if d.isoformat() not in complete]
+
+    if not missing:
+        return [
+            ImportResult(
+                status="skipped",
+                filename=f"last {LINZNETZ_LOOKBACK_DAYS} days",
+                error="All days already imported.",
+            )
+        ]
+
+    results: List[ImportResult] = []
+    async with LinzNetzFetcher(LINZNETZ_USERNAME, LINZNETZ_PASSWORD) as fetcher:
+        for day in missing:
+            day_str = day.isoformat()
+            try:
+                body, server_name = await fetcher.fetch(
+                    day, day, granularity="quarter", unit="KWH"
+                )
+            except NoDataError:
+                results.append(
+                    ImportResult(
+                        status="skipped",
+                        filename=day_str,
+                        error="No data available yet.",
+                    )
+                )
+                continue
+            except FetchError as e:
+                logger.warning("LinzNetz fetch failed for %s: %s", day_str, e)
+                results.append(
+                    ImportResult(status="error", filename=day_str, error=str(e))
+                )
+                continue
+            except Exception as e:
+                logger.error("LinzNetz fetch errored for %s", day_str, exc_info=True)
+                results.append(
+                    ImportResult(
+                        status="error",
+                        filename=day_str,
+                        error=f"Unexpected error: {e}",
+                    )
+                )
+                continue
+
+            safe_name = Path(server_name).name
+            file_path = UPLOAD_DIR / safe_name
+            try:
+                async with aiofiles.open(file_path, "wb") as f:
+                    await f.write(body)
+                result_dict = await db_context["csv_processor"].process_csv_file(
+                    str(file_path)
+                )
+                results.append(ImportResult(**result_dict))
+            except CSVImportError as e:
+                results.append(
+                    ImportResult(status="error", filename=safe_name, error=str(e))
+                )
+            except Exception as e:
+                logger.error("Import failed for %s: %s", safe_name, e, exc_info=True)
+                results.append(
+                    ImportResult(
+                        status="error",
+                        filename=safe_name,
+                        error="An internal server error has occurred.",
+                    )
+                )
+            finally:
+                if file_path.exists():
+                    file_path.unlink(missing_ok=True)
 
     return results
 

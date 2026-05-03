@@ -11,6 +11,11 @@ services:
       TZ: ${TZ:-Europe/Vienna}
       DATA_DIR: /app/data
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      # Optional: set LINZNETZ_USERNAME and LINZNETZ_PASSWORD in .env to
+      # enable the "Fetch latest from LinzNetz" button (POST /api/fetch).
+      LINZNETZ_USERNAME: ${LINZNETZ_USERNAME:-}
+      LINZNETZ_PASSWORD: ${LINZNETZ_PASSWORD:-}
+      LINZNETZ_LOOKBACK_DAYS: ${LINZNETZ_LOOKBACK_DAYS:-7}
 
 volumes:
   energy_data:

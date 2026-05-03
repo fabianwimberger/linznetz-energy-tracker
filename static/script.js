@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         datePickerContainer: document.getElementById('date-picker-container'),
         datePickerInput: document.getElementById('date-picker'),
         fileInput: document.getElementById('file-input'),
+        fetchButton: document.getElementById('fetch-button'),
         statusBadge: document.querySelector('.status-badge .status-text')
     };
 
@@ -340,6 +341,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderImportResult(result) {
+        const label = result.filename || 'fetch';
+        if (result.status === 'error') {
+            showStatus(`${label}: ${result.error}`, 'error');
+        } else if (result.status === 'skipped') {
+            showStatus(`${label}: ${result.error || 'Already imported'}`, 'info');
+        } else {
+            const records = result.records_processed != null
+                ? ` (${result.records_processed} records)`
+                : '';
+            showStatus(`${label}: Imported successfully${records}`, 'success');
+        }
+    }
+
+    async function handleFetchLatest() {
+        clearStatus();
+        elements.fetchButton.disabled = true;
+        const originalLabel = elements.fetchButton.textContent;
+        elements.fetchButton.textContent = 'Fetching…';
+
+        try {
+            const response = await fetch('/api/fetch', { method: 'POST' });
+            if (response.status === 503) {
+                showStatus('LinzNetz credentials not configured on the server.', 'error');
+                return;
+            }
+            if (response.status === 429) {
+                showStatus('Too many requests — please try again later.', 'error');
+                return;
+            }
+            if (!response.ok) {
+                showStatus(`Fetch failed (HTTP ${response.status}).`, 'error');
+                return;
+            }
+            const results = await response.json();
+            results.forEach(renderImportResult);
+            await updateChart();
+            await updateEntryCount();
+        } catch (error) {
+            showStatus('Fetch failed. Please try again.', 'error');
+        } finally {
+            elements.fetchButton.disabled = false;
+            elements.fetchButton.textContent = originalLabel;
+        }
+    }
+
     // Aggregation Change
     function handleAggregationChange(event) {
         state.currentAggregation = event.target.value;
@@ -426,6 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 radio.addEventListener('change', handleAggregationChange)
             );
             elements.fileInput.addEventListener('change', handleFileInputChange);
+            if (elements.fetchButton) {
+                elements.fetchButton.addEventListener('click', handleFetchLatest);
+            }
 
             // Window resize
             window.addEventListener('resize', () => {
