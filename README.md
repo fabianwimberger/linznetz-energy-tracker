@@ -5,6 +5,8 @@
 [![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> **⚠️ Disclaimer**: This is an independent, community-created project. It is **not affiliated with, endorsed by, or sponsored by Linz Netz GmbH**. "Linz Netz" and its associated logos are trademarks of Linz Netz GmbH. Use of the name is solely for identification and compatibility purposes. Use at your own risk.
+
 A self-hosted dashboard for visualizing electricity consumption from Austrian
 smart meter (Smart Meter / Intelligenter Zähler) CSV exports.
 
