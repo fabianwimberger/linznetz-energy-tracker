@@ -276,9 +276,7 @@ async def apply_migrations(conn, current_version):
 
         # Warn about DST transition days that may have incorrect data due to
         # old naive-timestamp primary-key collisions.
-        result = await conn.execute(
-            text("SELECT DISTINCT date_local FROM energy_readings")
-        )
+        result = await conn.execute(text("SELECT DISTINCT date_local FROM energy_readings"))
         for (date_str,) in result.fetchall():
             d = datetime.strptime(date_str, "%Y-%m-%d").date()
             if _is_dst_transition_day(d):
@@ -286,9 +284,7 @@ async def apply_migrations(conn, current_version):
                 end = start + timedelta(days=1)
                 expected = int((end - start).total_seconds() / 900)
                 cnt_res = await conn.execute(
-                    text(
-                        "SELECT COUNT(*) FROM energy_readings WHERE date_local = :d"
-                    ),
+                    text("SELECT COUNT(*) FROM energy_readings WHERE date_local = :d"),
                     {"d": date_str},
                 )
                 actual = cnt_res.scalar() or 0

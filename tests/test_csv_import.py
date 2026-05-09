@@ -33,17 +33,16 @@ class TestParseGermanDatetime:
     def test_invalid_format(self):
         assert CSVProcessor.parse_german_datetime("2025-01-01 00:00") is None
 
-    def test_dst_fold_second_occurrence(self):
-        """Autumn DST: second 02:00 gets fold=1 and maps to 01:00 UTC (CET)."""
-        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", fold=1)
-        # fold=1 => CET (UTC+1)
-        assert result == datetime(2024, 10, 27, 1, 0, tzinfo=UTC)
-
     def test_dst_fold_first_occurrence(self):
-        """Autumn DST: first 02:00 gets fold=0 and maps to 00:00 UTC (CEST)."""
-        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", fold=0)
-        # fold=0 => CEST (UTC+2)
+        """Autumn DST: first 02:00 has no preceding match → fold=0 → CEST (UTC+2)."""
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00")
         assert result == datetime(2024, 10, 27, 0, 0, tzinfo=UTC)
+
+    def test_dst_fold_second_occurrence(self):
+        """Autumn DST: second 02:00 matches previous → fold=1 → CET (UTC+1)."""
+        prev = datetime(2024, 10, 27, 2, 0)
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev_local_naive=prev)
+        assert result == datetime(2024, 10, 27, 1, 0, tzinfo=UTC)
 
 
 class TestParseAnyDailyDate:
