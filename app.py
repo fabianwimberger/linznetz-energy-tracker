@@ -541,11 +541,11 @@ async def get_chart_data(
 
             # Forecast current year
             current_date = datetime.now(UTC).date()
-            current_year = current_date.strftime("%Y")
+            current_year_str = current_date.strftime("%Y")
 
             forecast_values = []
             for row in rows:
-                if row["label"] == current_year:
+                if row["label"] == current_year_str:
                     # Days in current year
                     year = int(row["label"])
                     days_in_year = (
