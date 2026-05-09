@@ -69,7 +69,7 @@ def _extract_view_state_from_partial(xml: str) -> str:
     # PrimeFaces partial-response: <update id="...:javax.faces.ViewState..."><![CDATA[value]]></update>
     m = re.search(
         r'<update[^>]*id="[^"]*ViewState[^"]*"[^>]*>'
-        r"(?:<!\[CDATA\[)?([^<\]]+)(?:\]\]>)?</update>",
+        r"(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</update>",
         xml,
     )
     if m:
