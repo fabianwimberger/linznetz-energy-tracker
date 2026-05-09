@@ -201,12 +201,15 @@ async def apply_migrations(conn, current_version):
             text("ALTER TABLE energy_readings ADD COLUMN time_slot_local TEXT;")
         )
 
-        # Backfill local columns from existing naive timestamps
+        # Backfill local columns from existing naive timestamps.
+        # The stored values are already local time, so we extract directly
+        # without the 'localtime' modifier (which would wrongly treat them
+        # as UTC and shift near-midnight slots by one day).
         await conn.execute(
             text("""
                 UPDATE energy_readings SET
-                    date_local = DATE(reading_date_from, 'localtime'),
-                    time_slot_local = strftime('%H:%M', reading_date_from, 'localtime');
+                    date_local = DATE(reading_date_from),
+                    time_slot_local = strftime('%H:%M', reading_date_from);
             """)
         )
 
