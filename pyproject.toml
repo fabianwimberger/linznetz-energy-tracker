@@ -1,4 +1,49 @@
+[project]
+name = "linznetz-energy-tracker"
+version = "1.1.0"
+description = "Web application for graphical analysis of energy consumption from Austrian smart-meter CSV exports."
+requires-python = ">=3.13"
+
+dependencies = [
+    "fastapi==0.136.1",
+    "uvicorn[standard]==0.46.0",
+    "pydantic==2.13.3",
+    "aiosqlite==0.22.1",
+    "sqlalchemy==2.0.49",
+    "python-dateutil==2.9.0.post0",
+    "python-multipart==0.0.27",
+    "aiofiles==25.1.0",
+    "httpx==0.28.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.15.12",
+    "mypy==1.20.2",
+    "pytest==9.0.3",
+    "pytest-asyncio==1.3.0",
+    "pytest-cov==7.1.0",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["B008", "E741", "B904", "B905"]
+"csv_import.py" = ["B905"]
+"tests/*" = ["SIM115", "SIM117"]

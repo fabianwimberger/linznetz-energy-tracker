@@ -1,54 +1,63 @@
 #!/usr/bin/env python3
 """Energy Consumption Tracker"""
 
-import os
 import logging
-from pathlib import Path
-from typing import List, Optional, Literal, Dict, Any, MutableMapping
-from datetime import date, datetime, timedelta
-from contextlib import asynccontextmanager
+import os
 from collections import defaultdict
+from contextlib import asynccontextmanager
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import aiofiles  # type: ignore[import-untyped]
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, File, UploadFile, APIRouter, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from csv_import import CSVProcessor, CSVImportError
+from csv_import import CSVImportError, CSVProcessor
 from db_init import init_database
 from linznetz_fetcher import FetchError, LinzNetzFetcher, NoDataError
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/energy_data.db"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/energy_data.db")
 UPLOAD_DIR = DATA_DIR / "csv_uploads"
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit
 STATIC_DIR = Path(os.getenv("STATIC_DIR", "/app/static"))
 
 # Comma-separated origins; "*" allows any (useful for local dev).
-CORS_ORIGINS = [
-    o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()
-]
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 
 LINZNETZ_USERNAME = os.getenv("LINZNETZ_USERNAME")
 LINZNETZ_PASSWORD = os.getenv("LINZNETZ_PASSWORD")
 LINZNETZ_LOOKBACK_DAYS = int(os.getenv("LINZNETZ_LOOKBACK_DAYS", "7"))
 
-db_context: Dict[str, Any] = {}
-upload_tracker: MutableMapping[str, List[datetime]] = defaultdict(list)
+db_context: dict[str, Any] = {}
+upload_tracker: dict[str, list[datetime]] = defaultdict(list)
+
+
+def _expected_slots(d: date) -> int:
+    """Return the number of 15-minute slots expected for a given local date.
+
+    Accounts for DST transitions in Europe/Vienna:
+    - Normal day: 96 slots
+    - Spring DST (23h): 92 slots
+    - Autumn DST (25h): 100 slots
+    """
+    tz = ZoneInfo("Europe/Vienna")
+    start = datetime(d.year, d.month, d.day, tzinfo=tz)
+    end = start + timedelta(days=1)
+    return int((end - start).total_seconds() / 900)
 
 
 @asynccontextmanager
@@ -78,10 +87,19 @@ app = FastAPI(
     redoc_url=None,
 )
 
+# Guard against wildcard + credentials misconfiguration
+_allow_credentials = True
+if CORS_ORIGINS == ["*"]:
+    logger.warning(
+        "CORS_ORIGINS='*' detected with allow_credentials=True; "
+        "disabling credentials. Set CORS_ORIGINS to explicit origins for credentials."
+    )
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -105,32 +123,30 @@ api_router = APIRouter(prefix="/api")
 class ImportResult(BaseModel):
     status: str
     filename: str
-    records_processed: Optional[int] = None
-    error: Optional[str] = None
+    records_processed: int | None = None
+    error: str | None = None
 
 
 class ChartData(BaseModel):
-    labels: List[str]
-    data: List[float]
-    moving_average: Optional[List[Optional[float]]] = None
-    daily_average_pattern: Optional[List[float]] = None
-    forecast: Optional[List[Optional[float]]] = None
+    labels: list[str]
+    data: list[float]
+    moving_average: list[float | None] | None = None
+    daily_average_pattern: list[float] | None = None
+    forecast: list[float | None] | None = None
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def get_frontend():
     try:
-        async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
+        async with aiofiles.open(STATIC_DIR / "index.html", encoding="utf-8") as f:
             content = await f.read()
             return HTMLResponse(content=content)
     except FileNotFoundError:
-        return HTMLResponse(
-            content="<h1>Error: index.html not found.</h1>", status_code=404
-        )
+        return HTMLResponse(content="<h1>Error: index.html not found.</h1>", status_code=404)
 
 
-@api_router.post("/import", response_model=List[ImportResult])
-async def upload_and_import_csv(request: Request, files: List[UploadFile] = File(...)):
+@api_router.post("/import", response_model=list[ImportResult])
+async def upload_and_import_csv(request: Request, files: list[UploadFile] = File(...)):
     """Import CSV files."""
     client_ip = request.client.host if request.client else "unknown"
     now = datetime.now()
@@ -141,15 +157,9 @@ async def upload_and_import_csv(request: Request, files: List[UploadFile] = File
     ]
 
     if len(upload_tracker[client_ip]) >= 50:
-        raise HTTPException(
-            status_code=429, detail="Too many uploads. Please try again later."
-        )
+        raise HTTPException(status_code=429, detail="Too many uploads. Please try again later.")
 
     upload_tracker[client_ip].append(now)
-
-    # Clean up empty entries to prevent memory leak
-    if not upload_tracker[client_ip]:
-        del upload_tracker[client_ip]
 
     results = []
     for file in files:
@@ -181,19 +191,13 @@ async def upload_and_import_csv(request: Request, files: List[UploadFile] = File
                 content = await file.read()
                 await buffer.write(content)
 
-            result_dict = await db_context["csv_processor"].process_csv_file(
-                str(file_path)
-            )
+            result_dict = await db_context["csv_processor"].process_csv_file(str(file_path))
             results.append(ImportResult(**result_dict))
 
         except CSVImportError as e:
-            results.append(
-                ImportResult(status="error", filename=file.filename, error=str(e))
-            )
+            results.append(ImportResult(status="error", filename=file.filename, error=str(e)))
         except Exception as e:
-            logger.error(
-                f"Critical error processing {file.filename}: {e}", exc_info=True
-            )
+            logger.error(f"Critical error processing {file.filename}: {e}", exc_info=True)
             results.append(
                 ImportResult(
                     status="error",
@@ -216,7 +220,7 @@ async def upload_and_import_csv(request: Request, files: List[UploadFile] = File
     return results
 
 
-@api_router.post("/fetch", response_model=List[ImportResult])
+@api_router.post("/fetch", response_model=list[ImportResult])
 async def fetch_from_linznetz(request: Request):
     """Pull missing quarter-hour data for the last LINZNETZ_LOOKBACK_DAYS days."""
     if not LINZNETZ_USERNAME or not LINZNETZ_PASSWORD:
@@ -231,29 +235,29 @@ async def fetch_from_linznetz(request: Request):
         t for t in upload_tracker[client_ip] if now - t < timedelta(hours=1)
     ]
     if len(upload_tracker[client_ip]) >= 50:
-        raise HTTPException(
-            status_code=429, detail="Too many requests. Please try again later."
-        )
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
     upload_tracker[client_ip].append(now)
 
     today = date.today()
-    candidates = sorted(
-        today - timedelta(days=i) for i in range(1, LINZNETZ_LOOKBACK_DAYS + 1)
-    )
-    # LinzNetz often pushes partial days, so a day is only "complete" when
-    # all 96 quarter-hour slots are present. Anything below gets re-fetched.
+    candidates = sorted(today - timedelta(days=i) for i in range(1, LINZNETZ_LOOKBACK_DAYS + 1))
+    # A day is "complete" when it has the expected number of quarter-hour
+    # slots (96 normally, 92 on spring DST, 100 on autumn DST).
     rows = await _fetch_data(
         db_context["engine"],
         """
-        SELECT DATE(reading_date_from) AS d
+        SELECT date_local AS d, COUNT(*) AS cnt
         FROM energy_readings
-        WHERE DATE(reading_date_from) >= :start
-        GROUP BY DATE(reading_date_from)
-        HAVING COUNT(*) >= 96
+        WHERE date_local >= :start
+        GROUP BY date_local
         """,
         {"start": candidates[0].isoformat()},
     )
-    complete = {row["d"] for row in rows}
+    complete = set()
+    for row in rows:
+        d = date.fromisoformat(row["d"])
+        if row["cnt"] >= _expected_slots(d):
+            complete.add(row["d"])
+
     missing = [d for d in candidates if d.isoformat() not in complete]
 
     if not missing:
@@ -265,14 +269,12 @@ async def fetch_from_linznetz(request: Request):
             )
         ]
 
-    results: List[ImportResult] = []
+    results: list[ImportResult] = []
     async with LinzNetzFetcher(LINZNETZ_USERNAME, LINZNETZ_PASSWORD) as fetcher:
-        for day in missing:
+        for idx, day in enumerate(missing):
             day_str = day.isoformat()
             try:
-                body, server_name = await fetcher.fetch(
-                    day, day, granularity="quarter", unit="KWH"
-                )
+                body, server_name = await fetcher.fetch(day, day, granularity="quarter", unit="KWH")
             except NoDataError:
                 results.append(
                     ImportResult(
@@ -284,9 +286,7 @@ async def fetch_from_linznetz(request: Request):
                 continue
             except FetchError as e:
                 logger.warning("LinzNetz fetch failed for %s: %s", day_str, e)
-                results.append(
-                    ImportResult(status="error", filename=day_str, error=str(e))
-                )
+                results.append(ImportResult(status="error", filename=day_str, error=str(e)))
                 continue
             except Exception as e:
                 logger.error("LinzNetz fetch errored for %s", day_str, exc_info=True)
@@ -304,14 +304,15 @@ async def fetch_from_linznetz(request: Request):
             try:
                 async with aiofiles.open(file_path, "wb") as f:
                     await f.write(body)
+                # Only refresh the hourly pattern after the last file to avoid
+                # seven full-table scans when fetching a week of data.
+                is_last = idx == len(missing) - 1
                 result_dict = await db_context["csv_processor"].process_csv_file(
-                    str(file_path)
+                    str(file_path), refresh_pattern=is_last
                 )
                 results.append(ImportResult(**result_dict))
             except CSVImportError as e:
-                results.append(
-                    ImportResult(status="error", filename=safe_name, error=str(e))
-                )
+                results.append(ImportResult(status="error", filename=safe_name, error=str(e)))
             except Exception as e:
                 logger.error("Import failed for %s: %s", safe_name, e, exc_info=True)
                 results.append(
@@ -328,7 +329,7 @@ async def fetch_from_linznetz(request: Request):
     return results
 
 
-async def _fetch_data(engine, query: str, params: Optional[Dict[str, Any]] = None):
+async def _fetch_data(engine, query: str, params: dict[str, Any] | None = None):
     """Fetch data from the database."""
     async with engine.connect() as conn:
         result = await conn.execute(text(query), params or {})
@@ -337,10 +338,8 @@ async def _fetch_data(engine, query: str, params: Optional[Dict[str, Any]] = Non
 
 @api_router.get("/chart-data", response_model=ChartData)
 async def get_chart_data(
-    aggregation: Literal["raw", "daily", "weekly", "monthly", "yearly"] = Query(
-        "daily"
-    ),
-    day: Optional[date] = None,
+    aggregation: Literal["raw", "daily", "weekly", "monthly", "yearly"] = Query("daily"),
+    day: date | None = None,
 ):
     try:
         if aggregation == "raw":
@@ -352,10 +351,10 @@ async def get_chart_data(
 
             # Daily raw view with average pattern overlay
             daily_query = """
-                SELECT strftime('%H:%M', reading_date_from) as label, 
+                SELECT time_slot_local as label,
                        (energy_kwh * 4 * 1000) as value
                 FROM energy_readings
-                WHERE DATE(reading_date_from) = :day
+                WHERE date_local = :day
                 ORDER BY reading_date_from
             """
 
@@ -367,23 +366,19 @@ async def get_chart_data(
             """
 
             daily_rows = await _fetch_data(
-                db_context["engine"], daily_query, {"day": day}
+                db_context["engine"], daily_query, {"day": day.isoformat()}
             )
             pattern_rows = await _fetch_data(db_context["engine"], pattern_query)
 
             if not daily_rows:
                 return ChartData(labels=[], data=[], daily_average_pattern=[])
 
-            pattern_map = {
-                row["time_slot"]: float(row["avg_power_w"]) for row in pattern_rows
-            }
+            pattern_map = {row["time_slot"]: float(row["avg_power_w"]) for row in pattern_rows}
 
             return ChartData(
                 labels=[row["label"] for row in daily_rows],
                 data=[float(row["value"]) for row in daily_rows],
-                daily_average_pattern=[
-                    pattern_map.get(row["label"], 0) for row in daily_rows
-                ],
+                daily_average_pattern=[pattern_map.get(row["label"], 0) for row in daily_rows],
             )
 
         elif aggregation == "daily":
@@ -391,7 +386,7 @@ async def get_chart_data(
                 SELECT date as label,
                        total_energy_kwh as value,
                        AVG(total_energy_kwh) OVER (
-                           ORDER BY date 
+                           ORDER BY date
                            ROWS BETWEEN 45 PRECEDING AND 44 FOLLOWING
                        ) as moving_average
                 FROM daily_energy_summary
@@ -407,54 +402,72 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
             )
 
         elif aggregation == "weekly":
-            # Weekly aggregation with forecast
+            # Weekly aggregation with forecast — compute ISO weeks in Python
+            # to avoid SQLite's strftime('%Y-%W') mislabelling around year
+            # boundaries (e.g. early-January days that ISO counts as week 52/53
+            # of the previous year).
             query = """
-                SELECT strftime('%Y-W%W', date) as label,
-                       strftime('%Y-%W', date) as sort_key,
-                       SUM(total_energy_kwh) as value,
-                       COUNT(*) as day_count,
-                       AVG(SUM(total_energy_kwh)) OVER (
-                           ORDER BY strftime('%Y-%W', date)
-                           ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
-                       ) as moving_average
+                SELECT date, total_energy_kwh
                 FROM daily_energy_summary
-                GROUP BY strftime('%Y-%W', date)
-                ORDER BY strftime('%Y-%W', date)
+                ORDER BY date
             """
 
             rows = await _fetch_data(db_context["engine"], query)
 
-            # Forecast current week
-            current_date = datetime.now().date()
-            current_week = current_date.strftime("%Y-%W")
+            if not rows:
+                return ChartData(labels=[], data=[], moving_average=[], forecast=[])
 
-            forecast_values: List[Optional[float]] = []
+            # Group by ISO week
+            week_data: dict[str, dict[str, Any]] = {}
             for row in rows:
-                if row["sort_key"] == current_week:
+                d = date.fromisoformat(row["date"])
+                iso_year, iso_week, _ = d.isocalendar()
+                label = f"{iso_year}-W{iso_week:02d}"
+                if label not in week_data:
+                    week_data[label] = {
+                        "value": 0.0,
+                        "day_count": 0,
+                        "sort_key": d,
+                    }
+                week_data[label]["value"] += float(row["total_energy_kwh"])
+                week_data[label]["day_count"] += 1
+
+            labels = list(week_data.keys())
+            values = [week_data[l]["value"] for l in labels]
+            day_counts = [week_data[l]["day_count"] for l in labels]
+
+            # Moving average (5-week centered)
+            moving_average: list[float | None] = []
+            for i in range(len(values)):
+                window = values[max(0, i - 2) : min(len(values), i + 3)]
+                moving_average.append(sum(window) / len(window))
+
+            # Forecast current week
+            current_date = datetime.now(UTC).date()
+            current_year, current_week, _ = current_date.isocalendar()
+            current_label = f"{current_year}-W{current_week:02d}"
+
+            forecast_values: list[float | None] = []
+            for label, value, day_count in zip(labels, values, day_counts):
+                if label == current_label:
                     days_in_week = 7
-                    actual_days = int(row["day_count"])
-                    if actual_days < days_in_week:
-                        avg_per_day = float(row["value"]) / actual_days
-                        forecast = avg_per_day * days_in_week
-                        forecast_values.append(forecast)
+                    if day_count < days_in_week:
+                        avg_per_day = value / day_count
+                        forecast_values.append(avg_per_day * days_in_week)
                     else:
                         forecast_values.append(None)
                 else:
                     forecast_values.append(None)
 
             return ChartData(
-                labels=[row["label"] for row in rows],
-                data=[float(row["value"]) for row in rows],
-                moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
-                ],
+                labels=labels,
+                data=values,
+                moving_average=moving_average,
                 forecast=forecast_values,
             )
 
@@ -476,7 +489,7 @@ async def get_chart_data(
             rows = await _fetch_data(db_context["engine"], query)
 
             # Forecast current month
-            current_date = datetime.now().date()
+            current_date = datetime.now(UTC).date()
             current_month = current_date.strftime("%Y-%m")
 
             forecast_values = []
@@ -488,9 +501,7 @@ async def get_chart_data(
                         next_month_date = datetime(year + 1, 1, 1).date()
                     else:
                         next_month_date = datetime(year, month + 1, 1).date()
-                    days_in_month = (
-                        next_month_date - datetime(year, month, 1).date()
-                    ).days
+                    days_in_month = (next_month_date - datetime(year, month, 1).date()).days
 
                     actual_days = int(row["day_count"])
                     if actual_days < days_in_month:
@@ -506,8 +517,7 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
                 forecast=forecast_values,
             )
@@ -530,18 +540,16 @@ async def get_chart_data(
             rows = await _fetch_data(db_context["engine"], query)
 
             # Forecast current year
-            current_date = datetime.now().date()
-            current_year = current_date.strftime("%Y")
+            current_date = datetime.now(UTC).date()
+            current_year_str = current_date.strftime("%Y")
 
             forecast_values = []
             for row in rows:
-                if row["label"] == current_year:
+                if row["label"] == current_year_str:
                     # Days in current year
                     year = int(row["label"])
                     days_in_year = (
-                        366
-                        if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
-                        else 365
+                        366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
                     )
 
                     actual_days = int(row["day_count"])
@@ -558,8 +566,7 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
                 forecast=forecast_values,
             )
@@ -574,19 +581,17 @@ async def get_chart_data(
 @api_router.get("/latest-date")
 async def get_latest_data_date():
     """Returns the date of the most recent reading in the database."""
-    query = "SELECT DATE(MAX(reading_date_from)) as latest_date FROM energy_readings"
+    query = "SELECT MAX(date_local) as latest_date FROM energy_readings"
     rows = await _fetch_data(db_context["engine"], query)
     data = rows[0] if rows else None
-    return {
-        "latest_date": data["latest_date"] if data and data["latest_date"] else None
-    }
+    return {"latest_date": data["latest_date"] if data and data["latest_date"] else None}
 
 
 @api_router.get("/stats")
 async def get_database_stats():
     """Get database statistics for monitoring"""
     query = """
-        SELECT 
+        SELECT
             (SELECT COUNT(*) FROM energy_readings) as total_readings,
             (SELECT COUNT(*) FROM daily_energy_summary) as total_days,
             (SELECT MIN(date) FROM daily_energy_summary) as first_date,
@@ -600,4 +605,4 @@ async def get_database_stats():
 app.include_router(api_router)
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000)

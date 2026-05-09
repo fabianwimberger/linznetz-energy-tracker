@@ -22,9 +22,7 @@ class TestInitDatabase:
 
         async with engine.connect() as conn:
             result = await conn.execute(
-                text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
-                )
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'")
             )
             assert result.scalar_one_or_none() == "schema_version"
 
@@ -64,9 +62,7 @@ class TestInitDatabase:
                 "hourly_pattern",
             ):
                 result = await conn.execute(
-                    text(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name=:name"
-                    ),
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
                     {"name": table},
                 )
                 assert result.scalar_one_or_none() == table
@@ -84,9 +80,7 @@ class TestInitDatabase:
         await init_database(engine)
 
         async with engine.connect() as conn:
-            result = await conn.execute(
-                text("SELECT MAX(version) as v FROM schema_version")
-            )
+            result = await conn.execute(text("SELECT MAX(version) as v FROM schema_version"))
             assert result.scalar_one() == SCHEMA_VERSION
 
         await engine.dispose()
@@ -103,9 +97,7 @@ class TestInitDatabase:
         await init_database(engine)
 
         async with engine.connect() as conn:
-            result = await conn.execute(
-                text("SELECT MAX(version) as v FROM schema_version")
-            )
+            result = await conn.execute(text("SELECT MAX(version) as v FROM schema_version"))
             assert result.scalar_one() == SCHEMA_VERSION
 
         await engine.dispose()
@@ -134,9 +126,7 @@ class TestApplyMigrations:
 
         async with engine.connect() as conn:
             result = await conn.execute(
-                text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='energy_readings'"
-                )
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='energy_readings'")
             )
             assert result.scalar_one_or_none() == "energy_readings"
 
@@ -144,7 +134,7 @@ class TestApplyMigrations:
         Path(db_file.name).unlink(missing_ok=True)
 
     @pytest.mark.asyncio
-    async def test_v1_to_v2_creates_indexes(self):
+    async def test_v5_creates_local_columns_and_indexes(self):
         db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         db_file.close()
         database_url = f"sqlite+aiosqlite:///{db_file.name}"
@@ -153,12 +143,18 @@ class TestApplyMigrations:
         await init_database(engine)
 
         async with engine.connect() as conn:
-            result = await conn.execute(
-                text(
-                    "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_readings_date'"
+            for idx_name in ("idx_readings_date_local", "idx_readings_time_slot"):
+                result = await conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='index' AND name=:name"),
+                    {"name": idx_name},
                 )
-            )
-            assert result.scalar_one_or_none() == "idx_readings_date"
+                assert result.scalar_one_or_none() == idx_name
+
+            # Verify columns exist
+            result = await conn.execute(text("PRAGMA table_info(energy_readings)"))
+            cols = {row[1] for row in result.fetchall()}
+            assert "date_local" in cols
+            assert "time_slot_local" in cols
 
         await engine.dispose()
         Path(db_file.name).unlink(missing_ok=True)

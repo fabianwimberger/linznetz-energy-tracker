@@ -19,9 +19,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-CONSUMPTION_URL = (
-    "https://services.linznetz.at/verbrauchsdateninformation/consumption.jsf"
-)
+CONSUMPTION_URL = "https://services.linznetz.at/verbrauchsdateninformation/consumption.jsf"
 NAV_PARAM = "/de/linz_netz_website/online_services/serviceportal/meine_verbraeuche/verbrauchsdaten"
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -60,16 +58,14 @@ def _extract(pattern: str, text: str, label: str, *, group: int = 1) -> str:
 
 
 def _extract_view_state(html: str) -> str:
-    return _extract(
-        r'name="jakarta\.faces\.ViewState"[^>]*value="([^"]+)"', html, "ViewState"
-    )
+    return _extract(r'name="jakarta\.faces\.ViewState"[^>]*value="([^"]+)"', html, "ViewState")
 
 
 def _extract_view_state_from_partial(xml: str) -> str:
     # PrimeFaces partial-response: <update id="...:javax.faces.ViewState..."><![CDATA[value]]></update>
     m = re.search(
         r'<update[^>]*id="[^"]*ViewState[^"]*"[^>]*>'
-        r"(?:<!\[CDATA\[)?([^<\]]+)(?:\]\]>)?</update>",
+        r"(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</update>",
         xml,
     )
     if m:
@@ -86,7 +82,7 @@ def _fmt_de(d: date) -> str:
     return d.strftime("%d.%m.%Y")
 
 
-def _replace_view_state(state: "FormState", view_state: str) -> "FormState":
+def _replace_view_state(state: FormState, view_state: str) -> FormState:
     return FormState(
         view_state=view_state,
         granularity_field=state.granularity_field,
@@ -112,7 +108,7 @@ class LinzNetzFetcher:
             },
         )
 
-    async def __aenter__(self) -> "LinzNetzFetcher":
+    async def __aenter__(self) -> LinzNetzFetcher:
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -164,9 +160,7 @@ class LinzNetzFetcher:
         if pm:
             plant_field, plant_id = pm.group(1), pm.group(2)
 
-        from_src = re.search(
-            r'<script id="([^"]+)"[^>]*>changeFromDate = function', html
-        )
+        from_src = re.search(r'<script id="([^"]+)"[^>]*>changeFromDate = function', html)
         to_src = re.search(r'<script id="([^"]+)"[^>]*>assignToDate = function', html)
 
         return FormState(
@@ -182,9 +176,7 @@ class LinzNetzFetcher:
 
     @staticmethod
     def _find_unit_field(html: str, granularity_field: str) -> str | None:
-        for m in re.finditer(
-            r'name="([^"]*:selectedClass)"[^>]*value="(KWH|EUR)"', html
-        ):
+        for m in re.finditer(r'name="([^"]*:selectedClass)"[^>]*value="(KWH|EUR)"', html):
             name = m.group(1)
             if name != granularity_field:
                 return name
@@ -237,9 +229,7 @@ class LinzNetzFetcher:
             re.DOTALL,
         )
         if not inner_match:
-            raise FetchError(
-                "granularity-change response did not contain myForm1 update"
-            )
+            raise FetchError("granularity-change response did not contain myForm1 update")
         inner_html = inner_match.group(1)
         return FormState(
             view_state=_extract_view_state_from_partial(r.text),
@@ -272,16 +262,12 @@ class LinzNetzFetcher:
         r = await self._ajax_post(data)
         return _extract_view_state_from_partial(r.text)
 
-    async def _set_dates(
-        self, state: FormState, date_from: date, date_to: date
-    ) -> FormState:
+    async def _set_dates(self, state: FormState, date_from: date, date_to: date) -> FormState:
         if not state.from_date_source or not state.to_date_source:
             raise FetchError("calendar widget script ids missing")
         from_src = state.from_date_source
         to_src = state.to_date_source
-        vs = await self._set_calendar(
-            state, from_src, "changeFromDate", _fmt_de(date_from)
-        )
+        vs = await self._set_calendar(state, from_src, "changeFromDate", _fmt_de(date_from))
         state2 = _replace_view_state(state, vs)
         vs = await self._set_calendar(state2, to_src, "assignToDate", _fmt_de(date_to))
         return _replace_view_state(state2, vs)
@@ -361,9 +347,7 @@ class LinzNetzFetcher:
 
         ctype = r.headers.get("content-type", "")
         if "html" in ctype.lower():
-            raise FetchError(
-                f"expected CSV, got HTML (ctype={ctype}) — session may have expired"
-            )
+            raise FetchError(f"expected CSV, got HTML (ctype={ctype}) — session may have expired")
 
         filename = "consumption.csv"
         cd = r.headers.get("content-disposition", "")
@@ -416,11 +400,7 @@ async def _amain(args: argparse.Namespace) -> int:
     date_from = _parse_date(args.date_from) if args.date_from else today.replace(day=1)
     date_to = _parse_date(args.date_to) if args.date_to else today - timedelta(days=1)
 
-    out = (
-        Path(args.output)
-        if args.output
-        else Path(f"linznetz_{date_from}_{date_to}.csv")
-    )
+    out = Path(args.output) if args.output else Path(f"linznetz_{date_from}_{date_to}.csv")
 
     try:
         async with LinzNetzFetcher(user, pwd) as f:
@@ -443,14 +423,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--username")
     parser.add_argument("--password")
-    parser.add_argument(
-        "--date-from", help="YYYY-MM-DD; defaults to first of current month"
-    )
+    parser.add_argument("--date-from", help="YYYY-MM-DD; defaults to first of current month")
     parser.add_argument("--date-to", help="YYYY-MM-DD; defaults to yesterday")
     parser.add_argument("--granularity", choices=["quarter", "day"], default="quarter")
-    parser.add_argument(
-        "--output", "-o", help="output path; default: linznetz_<from>_<to>.csv"
-    )
+    parser.add_argument("--output", "-o", help="output path; default: linznetz_<from>_<to>.csv")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(

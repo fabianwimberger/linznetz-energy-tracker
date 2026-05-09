@@ -3,20 +3,26 @@
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from csv_import import CSVImportError, CSVProcessor
 
+UTC = ZoneInfo("UTC")
+VIENNA = ZoneInfo("Europe/Vienna")
+
 
 class TestParseGermanDatetime:
     def test_valid_datetime(self):
         result = CSVProcessor.parse_german_datetime("01.01.2025 00:00")
-        assert result == datetime(2025, 1, 1, 0, 0)
+        # January is CET (UTC+1)
+        assert result == datetime(2024, 12, 31, 23, 0, tzinfo=UTC)
 
     def test_valid_datetime_different_time(self):
         result = CSVProcessor.parse_german_datetime("15.06.2023 14:30")
-        assert result == datetime(2023, 6, 15, 14, 30)
+        # June is CEST (UTC+2)
+        assert result == datetime(2023, 6, 15, 12, 30, tzinfo=UTC)
 
     def test_empty_string(self):
         assert CSVProcessor.parse_german_datetime("") is None
@@ -26,6 +32,17 @@ class TestParseGermanDatetime:
 
     def test_invalid_format(self):
         assert CSVProcessor.parse_german_datetime("2025-01-01 00:00") is None
+
+    def test_dst_fold_first_occurrence(self):
+        """Autumn DST: first 02:00 has no preceding match → fold=0 → CEST (UTC+2)."""
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00")
+        assert result == datetime(2024, 10, 27, 0, 0, tzinfo=UTC)
+
+    def test_dst_fold_second_occurrence(self):
+        """Autumn DST: second 02:00 matches previous → fold=1 → CET (UTC+1)."""
+        prev = datetime(2024, 10, 27, 2, 0)
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev_local_naive=prev)
+        assert result == datetime(2024, 10, 27, 1, 0, tzinfo=UTC)
 
 
 class TestParseAnyDailyDate:
@@ -86,18 +103,18 @@ class TestValidateEnergyValue:
 
 class TestValidateDateSequence:
     def test_valid_15_minute_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 0)
-        dt_to = datetime(2025, 1, 1, 0, 15)
+        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)  # 00:00 CET
+        dt_to = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)  # 00:15 CET
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is True
 
     def test_invalid_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 0)
-        dt_to = datetime(2025, 1, 1, 0, 30)
+        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)
+        dt_to = datetime(2025, 1, 1, 23, 30, tzinfo=UTC)
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is False
 
     def test_negative_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 15)
-        dt_to = datetime(2025, 1, 1, 0, 0)
+        dt_from = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)
+        dt_to = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is False
 
 
@@ -147,9 +164,7 @@ class TestProcessCSVFile:
     @pytest.mark.asyncio
     async def test_daily_summary_csv(self, processor: CSVProcessor, tmp_path: Path):
         csv_file = tmp_path / "daily.csv"
-        csv_file.write_text(
-            "Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n"
-        )
+        csv_file.write_text("Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n")
 
         result = await processor.process_csv_file(str(csv_file))
 
@@ -189,8 +204,7 @@ class TestProcessCSVFile:
     async def test_invalid_energy_value(self, processor: CSVProcessor, tmp_path: Path):
         csv_file = tmp_path / "invalid.csv"
         csv_file.write_text(
-            "Datum von;Datum bis;Energiemenge in kWh\n"
-            "01.01.2025 00:00;01.01.2025 00:15;200,0\n"
+            "Datum von;Datum bis;Energiemenge in kWh\n01.01.2025 00:00;01.01.2025 00:15;200,0\n"
         )
 
         with pytest.raises(CSVImportError, match="No valid data found"):

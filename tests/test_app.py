@@ -1,10 +1,13 @@
 """Tests for FastAPI application endpoints."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import app as app_module
 from linznetz_fetcher import FetchError, NoDataError
+
+VIENNA_TZ = ZoneInfo("Europe/Vienna")
 
 
 class TestRootEndpoint:
@@ -188,20 +191,21 @@ class TestImportEndpoint:
 
 
 def _quarter_hour_csv_for(day: date, kwh: float = 0.123) -> bytes:
+    """Generate a quarter-hourly CSV with the correct number of slots for the
+    given date, accounting for DST transitions in Europe/Vienna."""
+    start = datetime(day.year, day.month, day.day, tzinfo=VIENNA_TZ)
+    end = start + timedelta(days=1)
+
     rows = ["Datum von;Datum bis;Energiemenge in kWh"]
-    fmt = day.strftime("%d.%m.%Y")
-    next_fmt = (day + timedelta(days=1)).strftime("%d.%m.%Y")
     kwh_de = f"{kwh:.3f}".replace(".", ",")
-    for hour in range(24):
-        for q in range(4):
-            start = f"{fmt} {hour:02d}:{q * 15:02d}"
-            if q < 3:
-                end = f"{fmt} {hour:02d}:{(q + 1) * 15:02d}"
-            elif hour < 23:
-                end = f"{fmt} {hour + 1:02d}:00"
-            else:
-                end = f"{next_fmt} 00:00"
-            rows.append(f"{start};{end};{kwh_de}")
+    current = start
+    while current < end:
+        next_slot = current + timedelta(minutes=15)
+        rows.append(
+            f"{current.strftime('%d.%m.%Y %H:%M')};{next_slot.strftime('%d.%m.%Y %H:%M')};{kwh_de}"
+        )
+        current = next_slot
+
     return ("\n".join(rows) + "\n").encode("utf-8")
 
 
@@ -240,8 +244,8 @@ class TestFetchEndpoint:
         assert "credentials" in response.json()["detail"].lower()
 
     def test_all_days_present_returns_skipped(self, client, monkeypatch, tmp_path):
-        # Pre-populate full quarter-hour data (incl. the 23:45 slot) for the
-        # whole lookback window so the endpoint sees nothing as missing.
+        # Pre-populate full quarter-hour data for the whole lookback window
+        # so the endpoint sees nothing as missing.
         today = date.today()
         for i in range(1, 8):
             d = today - timedelta(days=i)
@@ -263,8 +267,7 @@ class TestFetchEndpoint:
         assert "already imported" in (data[0]["error"] or "").lower()
 
     def test_partial_day_is_refetched(self, client, monkeypatch, tmp_path):
-        # A day below the 96-slot threshold must be re-fetched — the
-        # criterion is "every 15-min slot present", not just "any data".
+        # A day below the expected slot threshold must be re-fetched.
         target_day = date.today() - timedelta(days=1)
         partial = (
             "Datum von;Datum bis;Energiemenge in kWh\n"
@@ -285,7 +288,7 @@ class TestFetchEndpoint:
         data = response.json()
         successes = [r for r in data if r["status"] == "success"]
         assert len(successes) == 1
-        assert successes[0]["records_processed"] == 96
+        assert successes[0]["records_processed"] == app_module._expected_slots(target_day)
 
     def test_happy_path_imports_missing_day(self, client, monkeypatch):
         monkeypatch.setattr(app_module, "LINZNETZ_USERNAME", "u")
@@ -303,7 +306,7 @@ class TestFetchEndpoint:
         successes = [r for r in data if r["status"] == "success"]
         skipped = [r for r in data if r["status"] == "skipped"]
         assert len(successes) == 1
-        assert successes[0]["records_processed"] == 96
+        assert successes[0]["records_processed"] == app_module._expected_slots(target_day)
         assert len(skipped) == 6
         assert all("no data available" in r["error"].lower() for r in skipped)
 
