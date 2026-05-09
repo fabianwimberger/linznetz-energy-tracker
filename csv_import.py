@@ -7,14 +7,18 @@ import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 logger = logging.getLogger(__name__)
 BATCH_SIZE = 1000
+
+VIENNA_TZ = ZoneInfo("Europe/Vienna")
+UTC_TZ = ZoneInfo("UTC")
 
 
 class CSVImportError(Exception):
@@ -45,16 +49,28 @@ class CSVProcessor:
         return sha256.hexdigest()
 
     @staticmethod
-    def parse_german_datetime(value: Optional[str]) -> Optional[datetime]:
+    def parse_german_datetime(
+        value: str | None, prev_local_naive: datetime | None = None
+    ) -> datetime | None:
+        """Parse German-format datetime and convert to UTC.
+
+        Handles DST fold: if the local time matches the previous row's local
+        time (autumn DST duplicate), fold=1 is set so the second occurrence
+        maps to the later UTC hour (CET, UTC+1) instead of colliding with
+        the first (CEST, UTC+2).
+        """
         if not value:
             return None
         try:
-            return datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
+            naive = datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
+            fold = 1 if prev_local_naive is not None and naive == prev_local_naive else 0
+            local_dt = naive.replace(fold=fold, tzinfo=VIENNA_TZ)
+            return local_dt.astimezone(UTC_TZ)
         except (ValueError, TypeError):
             return None
 
     @staticmethod
-    def parse_any_daily_date(value: Optional[str]) -> Optional[date]:
+    def parse_any_daily_date(value: str | None) -> date | None:
         if not value:
             return None
         stripped_value = value.strip()
@@ -66,7 +82,7 @@ class CSVProcessor:
         return None
 
     @staticmethod
-    def parse_german_decimal(value: Optional[str]) -> Optional[Decimal]:
+    def parse_german_decimal(value: str | None) -> Decimal | None:
         if not value:
             return None
         try:
@@ -82,15 +98,15 @@ class CSVProcessor:
     def validate_date_sequence(date_from: datetime, date_to: datetime) -> bool:
         return date_to - date_from == timedelta(minutes=15)
 
-    async def _batch_insert_readings(self, conn, readings: List[Dict]) -> int:
+    async def _batch_insert_readings(self, conn, readings: list[dict]) -> int:
         if not readings:
             return 0
 
         insert_sql = text("""
             INSERT OR REPLACE INTO energy_readings
-                (reading_date_from, reading_date_to, energy_kwh)
+                (reading_date_from, reading_date_to, energy_kwh, date_local, time_slot_local)
             VALUES
-                (:reading_date_from, :reading_date_to, :energy_kwh)
+                (:reading_date_from, :reading_date_to, :energy_kwh, :date_local, :time_slot_local)
         """)
 
         processed = 0
@@ -101,7 +117,7 @@ class CSVProcessor:
 
         return processed
 
-    async def _refresh_daily_summaries(self, conn, dates: set) -> None:
+    async def _refresh_daily_summaries(self, conn, dates: set[date]) -> None:
         if not dates:
             return
 
@@ -109,19 +125,19 @@ class CSVProcessor:
         end_date = max(dates)
         logger.info(f"Refreshing daily summaries from {start_date} to {end_date}")
         refresh_sql = text("""
-            INSERT OR REPLACE INTO daily_energy_summary 
-                (date, total_energy_kwh, reading_count, 
+            INSERT OR REPLACE INTO daily_energy_summary
+                (date, total_energy_kwh, reading_count,
                  min_quarter_hour_kwh, max_quarter_hour_kwh, avg_quarter_hour_kwh)
             SELECT
-                DATE(reading_date_from) as date,
+                date_local as date,
                 SUM(energy_kwh) as total_energy_kwh,
                 COUNT(*) as reading_count,
                 MIN(energy_kwh) as min_quarter_hour_kwh,
                 MAX(energy_kwh) as max_quarter_hour_kwh,
                 AVG(energy_kwh) as avg_quarter_hour_kwh
             FROM energy_readings
-            WHERE DATE(reading_date_from) BETWEEN :start_date AND :end_date
-            GROUP BY DATE(reading_date_from)
+            WHERE date_local BETWEEN :start_date AND :end_date
+            GROUP BY date_local
         """)
 
         await conn.execute(
@@ -136,26 +152,27 @@ class CSVProcessor:
             text("""
             INSERT INTO hourly_pattern (time_slot, avg_power_w, sample_count)
             SELECT
-                strftime('%H:%M', reading_date_from) as time_slot,
+                time_slot_local as time_slot,
                 AVG(energy_kwh * 4 * 1000) as avg_power_w,
                 COUNT(*) as sample_count
             FROM energy_readings
-            GROUP BY strftime('%H:%M', reading_date_from)
+            GROUP BY time_slot_local
             HAVING COUNT(*) >= 5
         """)
         )
 
     async def _process_quarter_hourly_file(
-        self, conn, file_path: str, header: List[str], dialect: Any
+        self, conn, file_path: str, header: list[str], dialect: Any
     ) -> int:
-        readings = []
-        affected_dates = set()
+        readings: list[dict] = []
+        affected_dates: set[date] = set()
         skipped_rows = 0
 
         with open(file_path, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f, dialect)
             next(reader)  # Skip header
 
+            prev_local_naive: datetime | None = None
             for row_num, row in enumerate(reader, 2):
                 if len(row) < len(header):
                     logger.debug(f"Row {row_num}: Incomplete data, skipping")
@@ -164,7 +181,9 @@ class CSVProcessor:
 
                 row_data = {h.lower(): val for h, val in zip(header, row)}
 
-                date_from = self.parse_german_datetime(row_data.get("datum von"))
+                date_from = self.parse_german_datetime(
+                    row_data.get("datum von"), prev_local_naive
+                )
                 date_to = self.parse_german_datetime(row_data.get("datum bis"))
                 energy_kwh = self.parse_german_decimal(
                     row_data.get("energiemenge in kwh")
@@ -188,13 +207,24 @@ class CSVProcessor:
                     skipped_rows += 1
                     continue
 
-                affected_dates.add(date_from.date())
+                local_dt = date_from.astimezone(VIENNA_TZ)
+                date_local = local_dt.date()
+                time_slot_local = local_dt.strftime("%H:%M")
+
+                affected_dates.add(date_local)
                 readings.append(
                     {
-                        "reading_date_from": date_from,
-                        "reading_date_to": date_to,
+                        "reading_date_from": date_from.isoformat(),
+                        "reading_date_to": date_to.isoformat(),
                         "energy_kwh": float(energy_kwh),
+                        "date_local": date_local.isoformat(),
+                        "time_slot_local": time_slot_local,
                     }
+                )
+
+                # Store naive local time for next iteration's fold detection
+                prev_local_naive = datetime.strptime(
+                    row_data.get("datum von", "").strip(), "%d.%m.%Y %H:%M"
                 )
 
         if not readings:
@@ -205,7 +235,6 @@ class CSVProcessor:
         # Batch insert and refresh derived tables
         inserted = await self._batch_insert_readings(conn, readings)
         await self._refresh_daily_summaries(conn, affected_dates)
-        await self._refresh_hourly_pattern(conn)
 
         logger.info(
             f"Processed {inserted} readings, skipped {skipped_rows} invalid rows"
@@ -213,9 +242,9 @@ class CSVProcessor:
         return inserted
 
     async def _process_daily_summary_file(
-        self, conn, file_path: str, header: List[str], dialect: Any
+        self, conn, file_path: str, header: list[str], dialect: Any
     ) -> int:
-        summaries = []
+        summaries: list[dict] = []
         invalid_count = 0
 
         with open(file_path, "r", encoding="utf-8-sig") as f:
@@ -250,23 +279,31 @@ class CSVProcessor:
                 f"No valid daily data found. {invalid_count} invalid rows."
             )
 
-        # Simplified insert for daily summaries
+        # Insert daily summaries without overwriting existing quarter-hour data.
         insert_sql = text("""
             INSERT OR IGNORE INTO daily_energy_summary
-                (date, total_energy_kwh, reading_count)
+                (date, total_energy_kwh)
             VALUES
-                (:date, :total_energy_kwh, 0)
+                (:date, :total_energy_kwh)
         """)
 
         result = await conn.execute(insert_sql, summaries)
         inserted = result.rowcount
+
+        # Refresh summaries for any dates that already have quarter-hour readings
+        # so the accurate aggregate (with reading_count > 0) is preserved.
+        await self._refresh_daily_summaries(
+            conn, {s["date"] for s in summaries}
+        )
 
         logger.info(
             f"Imported {inserted} daily summaries, skipped {len(summaries) - inserted} duplicates"
         )
         return inserted
 
-    async def process_csv_file(self, file_path: str) -> Dict[str, Any]:
+    async def process_csv_file(
+        self, file_path: str, *, refresh_pattern: bool = True
+    ) -> dict[str, Any]:
         filename = Path(file_path).name
         logger.info(f"Processing: {filename}")
         file_hash = self.calculate_file_hash(file_path)
@@ -289,9 +326,9 @@ class CSVProcessor:
             log_id = str(uuid4())
             await conn.execute(
                 text("""
-                    INSERT INTO import_log 
+                    INSERT INTO import_log
                         (id, filename, file_hash, processing_status, started_at)
-                    VALUES 
+                    VALUES
                         (:id, :filename, :hash, 'processing', datetime('now'))
                 """),
                 {"id": log_id, "filename": filename, "hash": file_hash},
@@ -329,6 +366,10 @@ class CSVProcessor:
                 else:
                     raise CSVImportError(f"Unknown CSV format. Headers: {header_raw}")
 
+                # Refresh hourly pattern once per file if requested
+                if refresh_pattern:
+                    await self._refresh_hourly_pattern(conn)
+
                 # Update import log
                 await conn.execute(
                     text("""
@@ -365,4 +406,4 @@ class CSVProcessor:
 
                 if isinstance(e, CSVImportError):
                     raise
-                raise CSVImportError(f"Processing failed: {e}")
+                raise CSVImportError(f"Processing failed: {e}") from e
