@@ -35,15 +35,13 @@ class TestParseGermanDatetime:
 
     def test_dst_fold_second_occurrence(self):
         """Autumn DST: second 02:00 gets fold=1 and maps to 01:00 UTC (CET)."""
-        prev = datetime(2024, 10, 27, 2, 0)  # naive local
-        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev)
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", fold=1)
         # fold=1 => CET (UTC+1)
         assert result == datetime(2024, 10, 27, 1, 0, tzinfo=UTC)
 
     def test_dst_fold_first_occurrence(self):
         """Autumn DST: first 02:00 gets fold=0 and maps to 00:00 UTC (CEST)."""
-        prev = datetime(2024, 10, 27, 1, 45)  # different local time
-        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev)
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", fold=0)
         # fold=0 => CEST (UTC+2)
         assert result == datetime(2024, 10, 27, 0, 0, tzinfo=UTC)
 

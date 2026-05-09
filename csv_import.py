@@ -50,20 +50,20 @@ class CSVProcessor:
 
     @staticmethod
     def parse_german_datetime(
-        value: str | None, prev_local_naive: datetime | None = None
+        value: str | None, *, fold: int = 0
     ) -> datetime | None:
         """Parse German-format datetime and convert to UTC.
 
-        Handles DST fold: if the local time matches the previous row's local
-        time (autumn DST duplicate), fold=1 is set so the second occurrence
-        maps to the later UTC hour (CET, UTC+1) instead of colliding with
-        the first (CEST, UTC+2).
+        Args:
+            value: German-format datetime string, e.g. "31.10.2024 02:00".
+            fold: 0 for the first occurrence of an ambiguous local time
+                (autumn DST, e.g. CEST / UTC+2), 1 for the second
+                occurrence (CET / UTC+1).
         """
         if not value:
             return None
         try:
             naive = datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
-            fold = 1 if prev_local_naive is not None and naive == prev_local_naive else 0
             local_dt = naive.replace(fold=fold, tzinfo=VIENNA_TZ)
             return local_dt.astimezone(UTC_TZ)
         except (ValueError, TypeError):
@@ -172,7 +172,10 @@ class CSVProcessor:
             reader = csv.reader(f, dialect)
             next(reader)  # Skip header
 
-            prev_local_naive: datetime | None = None
+            # Track local datetimes already seen in this file so that the
+            # second occurrence of any slot during autumn DST gets fold=1.
+            seen_local: set[datetime] = set()
+
             for row_num, row in enumerate(reader, 2):
                 if len(row) < len(header):
                     logger.debug(f"Row {row_num}: Incomplete data, skipping")
@@ -181,10 +184,25 @@ class CSVProcessor:
 
                 row_data = {h.lower(): val for h, val in zip(header, row)}
 
-                date_from = self.parse_german_datetime(
-                    row_data.get("datum von"), prev_local_naive
-                )
-                date_to = self.parse_german_datetime(row_data.get("datum bis"))
+                raw_from = row_data.get("datum von")
+                raw_to = row_data.get("datum bis")
+                if not raw_from or not raw_to:
+                    logger.debug(f"Row {row_num}: Missing date columns")
+                    skipped_rows += 1
+                    continue
+
+                naive_from = datetime.strptime(raw_from.strip(), "%d.%m.%Y %H:%M")
+                naive_to = datetime.strptime(raw_to.strip(), "%d.%m.%Y %H:%M")
+
+                # Detect DST fold: if this exact local datetime was already
+                # seen in this file, it's the second pass (autumn DST).
+                fold_from = 1 if naive_from in seen_local else 0
+                fold_to = 1 if naive_to in seen_local else 0
+                seen_local.add(naive_from)
+                seen_local.add(naive_to)
+
+                date_from = self.parse_german_datetime(raw_from, fold=fold_from)
+                date_to = self.parse_german_datetime(raw_to, fold=fold_to)
                 energy_kwh = self.parse_german_decimal(
                     row_data.get("energiemenge in kwh")
                 )
@@ -220,11 +238,6 @@ class CSVProcessor:
                         "date_local": date_local.isoformat(),
                         "time_slot_local": time_slot_local,
                     }
-                )
-
-                # Store naive local time for next iteration's fold detection
-                prev_local_naive = datetime.strptime(
-                    row_data.get("datum von", "").strip(), "%d.%m.%Y %H:%M"
                 )
 
         if not readings:
