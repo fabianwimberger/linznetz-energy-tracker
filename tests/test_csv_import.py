@@ -1,22 +1,28 @@
 """Tests for CSV import functionality."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from csv_import import CSVImportError, CSVProcessor
 
+UTC = ZoneInfo("UTC")
+VIENNA = ZoneInfo("Europe/Vienna")
+
 
 class TestParseGermanDatetime:
     def test_valid_datetime(self):
         result = CSVProcessor.parse_german_datetime("01.01.2025 00:00")
-        assert result == datetime(2025, 1, 1, 0, 0)
+        # January is CET (UTC+1)
+        assert result == datetime(2024, 12, 31, 23, 0, tzinfo=UTC)
 
     def test_valid_datetime_different_time(self):
         result = CSVProcessor.parse_german_datetime("15.06.2023 14:30")
-        assert result == datetime(2023, 6, 15, 14, 30)
+        # June is CEST (UTC+2)
+        assert result == datetime(2023, 6, 15, 12, 30, tzinfo=UTC)
 
     def test_empty_string(self):
         assert CSVProcessor.parse_german_datetime("") is None
@@ -26,6 +32,20 @@ class TestParseGermanDatetime:
 
     def test_invalid_format(self):
         assert CSVProcessor.parse_german_datetime("2025-01-01 00:00") is None
+
+    def test_dst_fold_second_occurrence(self):
+        """Autumn DST: second 02:00 gets fold=1 and maps to 01:00 UTC (CET)."""
+        prev = datetime(2024, 10, 27, 2, 0)  # naive local
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev)
+        # fold=1 => CET (UTC+1)
+        assert result == datetime(2024, 10, 27, 1, 0, tzinfo=UTC)
+
+    def test_dst_fold_first_occurrence(self):
+        """Autumn DST: first 02:00 gets fold=0 and maps to 00:00 UTC (CEST)."""
+        prev = datetime(2024, 10, 27, 1, 45)  # different local time
+        result = CSVProcessor.parse_german_datetime("27.10.2024 02:00", prev)
+        # fold=0 => CEST (UTC+2)
+        assert result == datetime(2024, 10, 27, 0, 0, tzinfo=UTC)
 
 
 class TestParseAnyDailyDate:
@@ -86,18 +106,18 @@ class TestValidateEnergyValue:
 
 class TestValidateDateSequence:
     def test_valid_15_minute_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 0)
-        dt_to = datetime(2025, 1, 1, 0, 15)
+        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)   # 00:00 CET
+        dt_to = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)    # 00:15 CET
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is True
 
     def test_invalid_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 0)
-        dt_to = datetime(2025, 1, 1, 0, 30)
+        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)
+        dt_to = datetime(2025, 1, 1, 23, 30, tzinfo=UTC)
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is False
 
     def test_negative_interval(self):
-        dt_from = datetime(2025, 1, 1, 0, 15)
-        dt_to = datetime(2025, 1, 1, 0, 0)
+        dt_from = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)
+        dt_to = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is False
 
 
