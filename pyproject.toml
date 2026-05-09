@@ -44,3 +44,8 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["B008", "E741", "B904", "B905"]
+"csv_import.py" = ["B905"]
+"tests/*" = ["SIM115", "SIM117"]

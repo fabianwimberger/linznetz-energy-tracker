@@ -42,9 +42,7 @@ async def init_database(engine: AsyncEngine):
         """)
         )
 
-        result = await conn.execute(
-            text("SELECT MAX(version) as v FROM schema_version")
-        )
+        result = await conn.execute(text("SELECT MAX(version) as v FROM schema_version"))
         current_version = result.scalar() or 0
 
         if current_version < SCHEMA_VERSION:
@@ -205,12 +203,8 @@ async def apply_migrations(conn, current_version):
 
     if current_version < 5:
         # Add local date/time columns for DST-safe grouping and querying
-        await conn.execute(
-            text("ALTER TABLE energy_readings ADD COLUMN date_local DATE;")
-        )
-        await conn.execute(
-            text("ALTER TABLE energy_readings ADD COLUMN time_slot_local TEXT;")
-        )
+        await conn.execute(text("ALTER TABLE energy_readings ADD COLUMN date_local DATE;"))
+        await conn.execute(text("ALTER TABLE energy_readings ADD COLUMN time_slot_local TEXT;"))
 
         # Backfill local columns from existing naive timestamps.
         # The stored values are already local time, so we extract directly
@@ -228,9 +222,7 @@ async def apply_migrations(conn, current_version):
         # re-imports replace rather than duplicate rows.
         tz = ZoneInfo("Europe/Vienna")
         utc = ZoneInfo("UTC")
-        result = await conn.execute(
-            text("SELECT reading_date_from FROM energy_readings")
-        )
+        result = await conn.execute(text("SELECT reading_date_from FROM energy_readings"))
         rows = result.fetchall()
         for (naive_str,) in rows:
             try:

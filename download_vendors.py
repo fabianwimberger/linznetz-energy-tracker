@@ -27,9 +27,7 @@ def get_latest_github_release(repo: str) -> str:
             raise RuntimeError(f"Repository {repo} not found on GitHub.") from e
         raise RuntimeError(f"GitHub API error: {e.code}") from e
     except urllib.error.URLError as e:
-        raise RuntimeError(
-            f"Network error while contacting GitHub API: {e.reason}"
-        ) from e
+        raise RuntimeError(f"Network error while contacting GitHub API: {e.reason}") from e
 
 
 def download_file(url: str, dest: Path) -> None:

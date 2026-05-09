@@ -202,8 +202,7 @@ def _quarter_hour_csv_for(day: date, kwh: float = 0.123) -> bytes:
     while current < end:
         next_slot = current + timedelta(minutes=15)
         rows.append(
-            f"{current.strftime('%d.%m.%Y %H:%M')};"
-            f"{next_slot.strftime('%d.%m.%Y %H:%M')};{kwh_de}"
+            f"{current.strftime('%d.%m.%Y %H:%M')};{next_slot.strftime('%d.%m.%Y %H:%M')};{kwh_de}"
         )
         current = next_slot
 

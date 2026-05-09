@@ -196,9 +196,7 @@ class TestLoginAndGetConsumption:
     @pytest.mark.asyncio
     async def test_wrong_landing_page(self):
         f = LinzNetzFetcher("u", "p")
-        f._client.get = AsyncMock(
-            return_value=MagicMock(text="ok", url="https://other")
-        )
+        f._client.get = AsyncMock(return_value=MagicMock(text="ok", url="https://other"))
         with pytest.raises(FetchError, match="unexpected landing page"):
             await f._login_and_get_consumption()
 
@@ -258,9 +256,7 @@ class TestSelectGranularity:
             unit_field=None,
         )
         with pytest.raises(FetchError, match="granularity ConsumQuarter not in radios"):
-            await f._select_granularity(
-                state, "quarter", date(2024, 1, 1), date(2024, 1, 2)
-            )
+            await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
 
     @pytest.mark.asyncio
     async def test_no_myform1_update(self):
@@ -282,9 +278,7 @@ class TestSelectGranularity:
             unit_field=None,
         )
         with pytest.raises(FetchError, match="did not contain myForm1 update"):
-            await f._select_granularity(
-                state, "quarter", date(2024, 1, 1), date(2024, 1, 2)
-            )
+            await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
 
 
 class TestSetCalendar:
@@ -387,9 +381,7 @@ class TestClickDisplay:
             unit_field=None,
         )
         with pytest.raises(NoDataError, match="no data available"):
-            await f._click_display(
-                state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH"
-            )
+            await f._click_display(state, date(2024, 1, 1), date(2024, 1, 2), "quarter", "KWH")
 
     @pytest.mark.asyncio
     async def test_success(self):

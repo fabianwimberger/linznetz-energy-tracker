@@ -1,6 +1,6 @@
 """Tests for CSV import functionality."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -104,8 +104,8 @@ class TestValidateEnergyValue:
 
 class TestValidateDateSequence:
     def test_valid_15_minute_interval(self):
-        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)   # 00:00 CET
-        dt_to = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)    # 00:15 CET
+        dt_from = datetime(2025, 1, 1, 23, 0, tzinfo=UTC)  # 00:00 CET
+        dt_to = datetime(2025, 1, 1, 23, 15, tzinfo=UTC)  # 00:15 CET
         assert CSVProcessor.validate_date_sequence(dt_from, dt_to) is True
 
     def test_invalid_interval(self):
@@ -165,9 +165,7 @@ class TestProcessCSVFile:
     @pytest.mark.asyncio
     async def test_daily_summary_csv(self, processor: CSVProcessor, tmp_path: Path):
         csv_file = tmp_path / "daily.csv"
-        csv_file.write_text(
-            "Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n"
-        )
+        csv_file.write_text("Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n")
 
         result = await processor.process_csv_file(str(csv_file))
 
@@ -207,8 +205,7 @@ class TestProcessCSVFile:
     async def test_invalid_energy_value(self, processor: CSVProcessor, tmp_path: Path):
         csv_file = tmp_path / "invalid.csv"
         csv_file.write_text(
-            "Datum von;Datum bis;Energiemenge in kWh\n"
-            "01.01.2025 00:00;01.01.2025 00:15;200,0\n"
+            "Datum von;Datum bis;Energiemenge in kWh\n01.01.2025 00:00;01.01.2025 00:15;200,0\n"
         )
 
         with pytest.raises(CSVImportError, match="No valid data found"):

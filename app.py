@@ -1,48 +1,42 @@
 #!/usr/bin/env python3
 """Energy Consumption Tracker"""
 
-import os
 import logging
-from pathlib import Path
-from typing import Literal, Any
-from datetime import date, datetime, timedelta, time, timezone
-from contextlib import asynccontextmanager
+import os
 from collections import defaultdict
+from contextlib import asynccontextmanager
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import aiofiles  # type: ignore[import-untyped]
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, File, UploadFile, APIRouter, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from csv_import import CSVProcessor, CSVImportError
+from csv_import import CSVImportError, CSVProcessor
 from db_init import init_database
 from linznetz_fetcher import FetchError, LinzNetzFetcher, NoDataError
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/energy_data.db"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/energy_data.db")
 UPLOAD_DIR = DATA_DIR / "csv_uploads"
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit
 STATIC_DIR = Path(os.getenv("STATIC_DIR", "/app/static"))
 
 # Comma-separated origins; "*" allows any (useful for local dev).
-CORS_ORIGINS = [
-    o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()
-]
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 
 LINZNETZ_USERNAME = os.getenv("LINZNETZ_USERNAME")
 LINZNETZ_PASSWORD = os.getenv("LINZNETZ_PASSWORD")
@@ -144,13 +138,11 @@ class ChartData(BaseModel):
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def get_frontend():
     try:
-        async with aiofiles.open(STATIC_DIR / "index.html", "r", encoding="utf-8") as f:
+        async with aiofiles.open(STATIC_DIR / "index.html", encoding="utf-8") as f:
             content = await f.read()
             return HTMLResponse(content=content)
     except FileNotFoundError:
-        return HTMLResponse(
-            content="<h1>Error: index.html not found.</h1>", status_code=404
-        )
+        return HTMLResponse(content="<h1>Error: index.html not found.</h1>", status_code=404)
 
 
 @api_router.post("/import", response_model=list[ImportResult])
@@ -165,9 +157,7 @@ async def upload_and_import_csv(request: Request, files: list[UploadFile] = File
     ]
 
     if len(upload_tracker[client_ip]) >= 50:
-        raise HTTPException(
-            status_code=429, detail="Too many uploads. Please try again later."
-        )
+        raise HTTPException(status_code=429, detail="Too many uploads. Please try again later.")
 
     upload_tracker[client_ip].append(now)
 
@@ -201,19 +191,13 @@ async def upload_and_import_csv(request: Request, files: list[UploadFile] = File
                 content = await file.read()
                 await buffer.write(content)
 
-            result_dict = await db_context["csv_processor"].process_csv_file(
-                str(file_path)
-            )
+            result_dict = await db_context["csv_processor"].process_csv_file(str(file_path))
             results.append(ImportResult(**result_dict))
 
         except CSVImportError as e:
-            results.append(
-                ImportResult(status="error", filename=file.filename, error=str(e))
-            )
+            results.append(ImportResult(status="error", filename=file.filename, error=str(e)))
         except Exception as e:
-            logger.error(
-                f"Critical error processing {file.filename}: {e}", exc_info=True
-            )
+            logger.error(f"Critical error processing {file.filename}: {e}", exc_info=True)
             results.append(
                 ImportResult(
                     status="error",
@@ -251,15 +235,11 @@ async def fetch_from_linznetz(request: Request):
         t for t in upload_tracker[client_ip] if now - t < timedelta(hours=1)
     ]
     if len(upload_tracker[client_ip]) >= 50:
-        raise HTTPException(
-            status_code=429, detail="Too many requests. Please try again later."
-        )
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
     upload_tracker[client_ip].append(now)
 
     today = date.today()
-    candidates = sorted(
-        today - timedelta(days=i) for i in range(1, LINZNETZ_LOOKBACK_DAYS + 1)
-    )
+    candidates = sorted(today - timedelta(days=i) for i in range(1, LINZNETZ_LOOKBACK_DAYS + 1))
     # A day is "complete" when it has the expected number of quarter-hour
     # slots (96 normally, 92 on spring DST, 100 on autumn DST).
     rows = await _fetch_data(
@@ -294,9 +274,7 @@ async def fetch_from_linznetz(request: Request):
         for idx, day in enumerate(missing):
             day_str = day.isoformat()
             try:
-                body, server_name = await fetcher.fetch(
-                    day, day, granularity="quarter", unit="KWH"
-                )
+                body, server_name = await fetcher.fetch(day, day, granularity="quarter", unit="KWH")
             except NoDataError:
                 results.append(
                     ImportResult(
@@ -308,9 +286,7 @@ async def fetch_from_linznetz(request: Request):
                 continue
             except FetchError as e:
                 logger.warning("LinzNetz fetch failed for %s: %s", day_str, e)
-                results.append(
-                    ImportResult(status="error", filename=day_str, error=str(e))
-                )
+                results.append(ImportResult(status="error", filename=day_str, error=str(e)))
                 continue
             except Exception as e:
                 logger.error("LinzNetz fetch errored for %s", day_str, exc_info=True)
@@ -336,9 +312,7 @@ async def fetch_from_linznetz(request: Request):
                 )
                 results.append(ImportResult(**result_dict))
             except CSVImportError as e:
-                results.append(
-                    ImportResult(status="error", filename=safe_name, error=str(e))
-                )
+                results.append(ImportResult(status="error", filename=safe_name, error=str(e)))
             except Exception as e:
                 logger.error("Import failed for %s: %s", safe_name, e, exc_info=True)
                 results.append(
@@ -364,9 +338,7 @@ async def _fetch_data(engine, query: str, params: dict[str, Any] | None = None):
 
 @api_router.get("/chart-data", response_model=ChartData)
 async def get_chart_data(
-    aggregation: Literal["raw", "daily", "weekly", "monthly", "yearly"] = Query(
-        "daily"
-    ),
+    aggregation: Literal["raw", "daily", "weekly", "monthly", "yearly"] = Query("daily"),
     day: date | None = None,
 ):
     try:
@@ -401,16 +373,12 @@ async def get_chart_data(
             if not daily_rows:
                 return ChartData(labels=[], data=[], daily_average_pattern=[])
 
-            pattern_map = {
-                row["time_slot"]: float(row["avg_power_w"]) for row in pattern_rows
-            }
+            pattern_map = {row["time_slot"]: float(row["avg_power_w"]) for row in pattern_rows}
 
             return ChartData(
                 labels=[row["label"] for row in daily_rows],
                 data=[float(row["value"]) for row in daily_rows],
-                daily_average_pattern=[
-                    pattern_map.get(row["label"], 0) for row in daily_rows
-                ],
+                daily_average_pattern=[pattern_map.get(row["label"], 0) for row in daily_rows],
             )
 
         elif aggregation == "daily":
@@ -434,8 +402,7 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
             )
 
@@ -481,7 +448,7 @@ async def get_chart_data(
                 moving_average.append(sum(window) / len(window))
 
             # Forecast current week
-            current_date = datetime.now(timezone.utc).date()
+            current_date = datetime.now(UTC).date()
             current_year, current_week, _ = current_date.isocalendar()
             current_label = f"{current_year}-W{current_week:02d}"
 
@@ -522,7 +489,7 @@ async def get_chart_data(
             rows = await _fetch_data(db_context["engine"], query)
 
             # Forecast current month
-            current_date = datetime.now(timezone.utc).date()
+            current_date = datetime.now(UTC).date()
             current_month = current_date.strftime("%Y-%m")
 
             forecast_values = []
@@ -534,9 +501,7 @@ async def get_chart_data(
                         next_month_date = datetime(year + 1, 1, 1).date()
                     else:
                         next_month_date = datetime(year, month + 1, 1).date()
-                    days_in_month = (
-                        next_month_date - datetime(year, month, 1).date()
-                    ).days
+                    days_in_month = (next_month_date - datetime(year, month, 1).date()).days
 
                     actual_days = int(row["day_count"])
                     if actual_days < days_in_month:
@@ -552,8 +517,7 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
                 forecast=forecast_values,
             )
@@ -576,7 +540,7 @@ async def get_chart_data(
             rows = await _fetch_data(db_context["engine"], query)
 
             # Forecast current year
-            current_date = datetime.now(timezone.utc).date()
+            current_date = datetime.now(UTC).date()
             current_year = current_date.strftime("%Y")
 
             forecast_values = []
@@ -585,9 +549,7 @@ async def get_chart_data(
                     # Days in current year
                     year = int(row["label"])
                     days_in_year = (
-                        366
-                        if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
-                        else 365
+                        366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
                     )
 
                     actual_days = int(row["day_count"])
@@ -604,8 +566,7 @@ async def get_chart_data(
                 labels=[row["label"] for row in rows],
                 data=[float(row["value"]) for row in rows],
                 moving_average=[
-                    float(row["moving_average"]) if row["moving_average"] else None
-                    for row in rows
+                    float(row["moving_average"]) if row["moving_average"] else None for row in rows
                 ],
                 forecast=forecast_values,
             )
@@ -623,9 +584,7 @@ async def get_latest_data_date():
     query = "SELECT MAX(date_local) as latest_date FROM energy_readings"
     rows = await _fetch_data(db_context["engine"], query)
     data = rows[0] if rows else None
-    return {
-        "latest_date": data["latest_date"] if data and data["latest_date"] else None
-    }
+    return {"latest_date": data["latest_date"] if data and data["latest_date"] else None}
 
 
 @api_router.get("/stats")

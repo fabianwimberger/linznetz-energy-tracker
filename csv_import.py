@@ -50,20 +50,20 @@ class CSVProcessor:
 
     @staticmethod
     def parse_german_datetime(
-        value: str | None, *, fold: int = 0
+        value: str | None, prev_local_naive: datetime | None = None
     ) -> datetime | None:
         """Parse German-format datetime and convert to UTC.
 
-        Args:
-            value: German-format datetime string, e.g. "31.10.2024 02:00".
-            fold: 0 for the first occurrence of an ambiguous local time
-                (autumn DST, e.g. CEST / UTC+2), 1 for the second
-                occurrence (CET / UTC+1).
+        Handles DST fold: if the local time matches the previous row's local
+        time (autumn DST duplicate), fold=1 is set so the second occurrence
+        maps to the later UTC hour (CET, UTC+1) instead of colliding with
+        the first (CEST, UTC+2).
         """
         if not value:
             return None
         try:
             naive = datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
+            fold = 1 if prev_local_naive is not None and naive == prev_local_naive else 0
             local_dt = naive.replace(fold=fold, tzinfo=VIENNA_TZ)
             return local_dt.astimezone(UTC_TZ)
         except (ValueError, TypeError):
@@ -168,14 +168,11 @@ class CSVProcessor:
         affected_dates: set[date] = set()
         skipped_rows = 0
 
-        with open(file_path, "r", encoding="utf-8-sig") as f:
+        with open(file_path, encoding="utf-8-sig") as f:
             reader = csv.reader(f, dialect)
             next(reader)  # Skip header
 
-            # Track local datetimes already seen in this file so that the
-            # second occurrence of any slot during autumn DST gets fold=1.
-            seen_local: set[datetime] = set()
-
+            prev_local_naive: datetime | None = None
             for row_num, row in enumerate(reader, 2):
                 if len(row) < len(header):
                     logger.debug(f"Row {row_num}: Incomplete data, skipping")
@@ -184,28 +181,9 @@ class CSVProcessor:
 
                 row_data = {h.lower(): val for h, val in zip(header, row)}
 
-                raw_from = row_data.get("datum von")
-                raw_to = row_data.get("datum bis")
-                if not raw_from or not raw_to:
-                    logger.debug(f"Row {row_num}: Missing date columns")
-                    skipped_rows += 1
-                    continue
-
-                naive_from = datetime.strptime(raw_from.strip(), "%d.%m.%Y %H:%M")
-                naive_to = datetime.strptime(raw_to.strip(), "%d.%m.%Y %H:%M")
-
-                # Detect DST fold: if this exact local datetime was already
-                # seen in this file, it's the second pass (autumn DST).
-                fold_from = 1 if naive_from in seen_local else 0
-                fold_to = 1 if naive_to in seen_local else 0
-                seen_local.add(naive_from)
-                seen_local.add(naive_to)
-
-                date_from = self.parse_german_datetime(raw_from, fold=fold_from)
-                date_to = self.parse_german_datetime(raw_to, fold=fold_to)
-                energy_kwh = self.parse_german_decimal(
-                    row_data.get("energiemenge in kwh")
-                )
+                date_from = self.parse_german_datetime(row_data.get("datum von"), prev_local_naive)
+                date_to = self.parse_german_datetime(row_data.get("datum bis"))
+                energy_kwh = self.parse_german_decimal(row_data.get("energiemenge in kwh"))
 
                 # Validation
                 if date_from is None or date_to is None or energy_kwh is None:
@@ -219,9 +197,7 @@ class CSVProcessor:
                     continue
 
                 if not self.validate_energy_value(energy_kwh):
-                    logger.warning(
-                        f"Row {row_num}: Energy value {energy_kwh} out of bounds"
-                    )
+                    logger.warning(f"Row {row_num}: Energy value {energy_kwh} out of bounds")
                     skipped_rows += 1
                     continue
 
@@ -240,18 +216,19 @@ class CSVProcessor:
                     }
                 )
 
+                # Store naive local time for next iteration's fold detection
+                prev_local_naive = datetime.strptime(
+                    row_data.get("datum von", "").strip(), "%d.%m.%Y %H:%M"
+                )
+
         if not readings:
-            raise CSVImportError(
-                f"No valid data found. Skipped {skipped_rows} invalid rows."
-            )
+            raise CSVImportError(f"No valid data found. Skipped {skipped_rows} invalid rows.")
 
         # Batch insert and refresh derived tables
         inserted = await self._batch_insert_readings(conn, readings)
         await self._refresh_daily_summaries(conn, affected_dates)
 
-        logger.info(
-            f"Processed {inserted} readings, skipped {skipped_rows} invalid rows"
-        )
+        logger.info(f"Processed {inserted} readings, skipped {skipped_rows} invalid rows")
         return inserted
 
     async def _process_daily_summary_file(
@@ -260,7 +237,7 @@ class CSVProcessor:
         summaries: list[dict] = []
         invalid_count = 0
 
-        with open(file_path, "r", encoding="utf-8-sig") as f:
+        with open(file_path, encoding="utf-8-sig") as f:
             reader = csv.reader(f, dialect)
             next(reader)  # Skip header
 
@@ -272,9 +249,7 @@ class CSVProcessor:
                 row_data = {h.lower(): val for h, val in zip(header, row)}
 
                 date_val = self.parse_any_daily_date(row_data.get("datum"))
-                energy_val = self.parse_german_decimal(
-                    row_data.get("energiemenge in kwh")
-                )
+                energy_val = self.parse_german_decimal(row_data.get("energiemenge in kwh"))
 
                 if date_val and energy_val is not None:
                     summaries.append(
@@ -288,9 +263,7 @@ class CSVProcessor:
                     logger.debug(f"Row {row_num}: Invalid date or energy value")
 
         if not summaries:
-            raise CSVImportError(
-                f"No valid daily data found. {invalid_count} invalid rows."
-            )
+            raise CSVImportError(f"No valid daily data found. {invalid_count} invalid rows.")
 
         # Insert daily summaries without overwriting existing quarter-hour data.
         insert_sql = text("""
@@ -305,9 +278,7 @@ class CSVProcessor:
 
         # Refresh summaries for any dates that already have quarter-hour readings
         # so the accurate aggregate (with reading_count > 0) is preserved.
-        await self._refresh_daily_summaries(
-            conn, {s["date"] for s in summaries}
-        )
+        await self._refresh_daily_summaries(conn, {s["date"] for s in summaries})
 
         logger.info(
             f"Imported {inserted} daily summaries, skipped {len(summaries) - inserted} duplicates"
@@ -349,7 +320,7 @@ class CSVProcessor:
 
             try:
                 # Detect CSV format
-                with open(file_path, "r", encoding="utf-8-sig") as f:
+                with open(file_path, encoding="utf-8-sig") as f:
                     sample = f.read(2048)
                     f.seek(0)
 
@@ -395,9 +366,7 @@ class CSVProcessor:
                     {"records": records_processed, "id": log_id},
                 )
 
-                logger.info(
-                    f"Successfully processed {filename}: {records_processed} records"
-                )
+                logger.info(f"Successfully processed {filename}: {records_processed} records")
                 return {
                     "status": "success",
                     "filename": filename,
