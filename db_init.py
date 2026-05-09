@@ -2,7 +2,7 @@
 """Database schema initialization and migrations."""
 
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
@@ -11,6 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 5
+
+
+def _is_dst_transition_day(d: date) -> bool:
+    """Return True if *d* is the European DST transition day (last Sunday
+    of March or last Sunday of October)."""
+    if d.month not in (3, 10):
+        return False
+    # Last Sunday of the month
+    next_month = d.replace(day=28) + timedelta(days=4)
+    last_sunday = next_month - timedelta(days=next_month.weekday() + 1)
+    return d == last_sunday
 
 
 async def init_database(engine: AsyncEngine):
@@ -270,5 +281,31 @@ async def apply_migrations(conn, current_version):
                 HAVING COUNT(*) >= 5
             """)
         )
+
+        # Warn about DST transition days that may have incorrect data due to
+        # old naive-timestamp primary-key collisions.
+        result = await conn.execute(
+            text("SELECT DISTINCT date_local FROM energy_readings")
+        )
+        for (date_str,) in result.fetchall():
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+            if _is_dst_transition_day(d):
+                start = datetime(d.year, d.month, d.day, tzinfo=tz)
+                end = start + timedelta(days=1)
+                expected = int((end - start).total_seconds() / 900)
+                cnt_res = await conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM energy_readings WHERE date_local = :d"
+                    ),
+                    {"d": date_str},
+                )
+                actual = cnt_res.scalar() or 0
+                if actual != expected:
+                    logger.warning(
+                        f"DST transition day {d} has {actual} readings "
+                        f"(expected {expected}). Data may have been lost during "
+                        f"previous naive-timestamp imports. Consider re-importing "
+                        f"this day for accurate totals."
+                    )
 
         await conn.execute(text("ANALYZE"))
