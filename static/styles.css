@@ -149,6 +149,54 @@ html, body {
     flex-direction: column;
 }
 
+.chart-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.chart-control-button,
+.chart-reset-button {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    height: 2rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.chart-control-button {
+    width: 2rem;
+}
+
+.chart-reset-button {
+    padding: 0 0.75rem;
+}
+
+.chart-control-button:hover:not(:disabled),
+.chart-reset-button:hover:not(:disabled) {
+    background: rgba(0, 212, 170, 0.1);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.chart-control-button:focus-visible,
+.chart-reset-button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.chart-control-button:disabled,
+.chart-reset-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 /* Chart Container */
 .chart-container {
     width: 100%;
