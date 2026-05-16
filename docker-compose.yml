@@ -3,6 +3,8 @@ services:
     image: ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
     container_name: linznetz-energy-tracker
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
     ports:
       - "${PORT:-8000}:8000"
     volumes:
