@@ -11,7 +11,7 @@ sqlalchemy==2.0.49
 python-dateutil==2.9.0.post0
 
 # File handling
-python-multipart==0.0.29
+python-multipart==0.0.30
 aiofiles==25.1.0
 
 # LinzNetz portal client
