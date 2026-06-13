@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
         datePickerInput: document.getElementById('date-picker'),
         fileInput: document.getElementById('file-input'),
         fetchButton: document.getElementById('fetch-button'),
+        rangeWeekButton: document.getElementById('range-week-button'),
+        rangeMonthButton: document.getElementById('range-month-button'),
+        rangeYearButton: document.getElementById('range-year-button'),
         panLeftButton: document.getElementById('pan-left-button'),
         panRightButton: document.getElementById('pan-right-button'),
         zoomInButton: document.getElementById('zoom-in-button'),
@@ -67,6 +70,25 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.uploadStatus.innerHTML = '';
     }
 
+    // Points to show per range × aggregation; null = disable the button
+    const RANGE_POINTS = {
+        week:  { daily: 7,   weekly: 2,  monthly: null, yearly: null },
+        month: { daily: 31,  weekly: 5,  monthly: 1,    yearly: null },
+        year:  { daily: 365, weekly: 52, monthly: 12,   yearly: 1    }
+    };
+
+    function getLastNPoints(range) {
+        if (state.currentAggregation === 'raw') return null;
+        return (RANGE_POINTS[range] || {})[state.currentAggregation] ?? null;
+    }
+
+    function updateRangeButtons(forceDisable = false) {
+        const noData = forceDisable || !state.chart || state.chart.data.labels.length === 0;
+        [['week', elements.rangeWeekButton], ['month', elements.rangeMonthButton], ['year', elements.rangeYearButton]].forEach(([range, btn]) => {
+            if (btn) btn.disabled = noData || getLastNPoints(range) === null;
+        });
+    }
+
     function updateZoomControls(disabled) {
         [
             elements.panLeftButton,
@@ -77,6 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
         ].forEach(button => {
             if (button) button.disabled = disabled;
         });
+        updateRangeButtons(disabled);
+    }
+
+    function zoomToRange(range) {
+        if (!state.chart) return;
+        const n = getLastNPoints(range);
+        if (n === null) return;
+        const count = state.chart.data.labels.length;
+        if (count === 0) return;
+        state.chart.zoomScale('x', { min: Math.max(0, count - n), max: count - 1 }, 'none');
     }
 
     function handleZoom(scale) {
@@ -431,6 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.datePickerContainer.classList.add('hidden');
         }
 
+        updateRangeButtons();
         updateChart();
     }
 
@@ -509,6 +542,15 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.fileInput.addEventListener('change', handleFileInputChange);
             if (elements.fetchButton) {
                 elements.fetchButton.addEventListener('click', handleFetchLatest);
+            }
+            if (elements.rangeWeekButton) {
+                elements.rangeWeekButton.addEventListener('click', () => zoomToRange('week'));
+            }
+            if (elements.rangeMonthButton) {
+                elements.rangeMonthButton.addEventListener('click', () => zoomToRange('month'));
+            }
+            if (elements.rangeYearButton) {
+                elements.rangeYearButton.addEventListener('click', () => zoomToRange('year'));
             }
             if (elements.panLeftButton) {
                 elements.panLeftButton.addEventListener('click', () => panChart(80));

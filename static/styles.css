@@ -158,7 +158,8 @@ html, body {
 }
 
 .chart-control-button,
-.chart-reset-button {
+.chart-reset-button,
+.chart-range-button {
     appearance: none;
     border: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.05);
@@ -171,6 +172,20 @@ html, body {
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
+.chart-range-button {
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
+}
+
+.chart-toolbar-sep {
+    width: 1px;
+    height: 1.5rem;
+    background: var(--border);
+    margin: 0 0.125rem;
+    align-self: center;
+    flex-shrink: 0;
+}
+
 .chart-control-button {
     width: 2rem;
 }
@@ -180,20 +195,23 @@ html, body {
 }
 
 .chart-control-button:hover:not(:disabled),
-.chart-reset-button:hover:not(:disabled) {
+.chart-reset-button:hover:not(:disabled),
+.chart-range-button:hover:not(:disabled) {
     background: rgba(0, 212, 170, 0.1);
     border-color: var(--primary);
     color: var(--primary);
 }
 
 .chart-control-button:focus-visible,
-.chart-reset-button:focus-visible {
+.chart-reset-button:focus-visible,
+.chart-range-button:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
 
 .chart-control-button:disabled,
-.chart-reset-button:disabled {
+.chart-reset-button:disabled,
+.chart-range-button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
