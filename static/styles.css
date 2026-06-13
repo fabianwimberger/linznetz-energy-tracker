@@ -36,6 +36,7 @@ html, body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
 }
 
 /* Header */
@@ -537,7 +538,7 @@ html, body {
 
     .sidebar-section:last-child {
         display: block;
-        padding-bottom: 2rem;
+        padding-bottom: max(2rem, env(safe-area-inset-bottom));
     }
 
     .chart-container {
@@ -615,7 +616,7 @@ html, body {
     }
 
     .sidebar-section:last-child {
-        padding-bottom: 2rem;
+        padding-bottom: max(2rem, env(safe-area-inset-bottom));
         display: block;
     }
 
