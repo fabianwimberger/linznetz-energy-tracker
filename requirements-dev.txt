@@ -1,8 +1,8 @@
 # Linting and formatting
-ruff==0.15.19
+ruff==0.15.21
 
 # Type checking
-mypy==2.1.0
+mypy==2.3.0
 
 # Testing
 pytest==9.1.1
