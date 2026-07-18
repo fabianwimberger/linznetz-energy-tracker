@@ -1,18 +1,48 @@
+@font-face {
+    font-family: 'Space Grotesk';
+    src: url('/static/vendor/fonts/space-grotesk-700.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IBM Plex Mono';
+    src: url('/static/vendor/fonts/ibm-plex-mono-500.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
-    --primary: #00d4aa;
-    --primary-dark: #00b894;
-    --secondary: #0070f3;
-    --background: #0f172a;
-    --surface: #1e293b;
-    --surface-light: #334155;
-    --border: rgba(255, 255, 255, 0.1);
-    --text-primary: #ffffff;
-    --text-secondary: #94a3b8;
-    --success: #22c55e;
-    --error: #ef4444;
-    --warning: #f59e0b;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    /* Meter palette — warm graphite panel, copper consumption, cyan reference trace */
+    --ink: #16130f;
+    --panel: #211b15;
+    --panel-light: #2e261c;
+    --line: rgba(255, 231, 199, 0.1);
+    --copper: #e2933f;
+    --copper-dim: #c97a2e;
+    --current: #59b3ab;
+    --gold: #c9a227;
+    --paper: #f4ecdf;
+    --paper-dim: #a89a86;
+
+    --primary: var(--copper);
+    --background: var(--ink);
+    --surface: var(--panel);
+    --surface-light: var(--panel-light);
+    --border: var(--line);
+    --text-primary: var(--paper);
+    --text-secondary: var(--paper-dim);
+    --success: #7fb347;
+    --error: #e2585a;
+    --warning: var(--gold);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+
+    --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 }
 
 * {
@@ -23,7 +53,7 @@
 
 html, body {
     height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: var(--font-body);
     background: var(--background);
     color: var(--text-primary);
     overflow: hidden;
@@ -53,16 +83,25 @@ html, body {
 }
 
 .header-title {
+    font-family: var(--font-display);
     font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: -0.025em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 
 .header-icon {
-    font-size: 1.75rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    color: var(--copper);
+    flex-shrink: 0;
+}
+
+.header-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .status-badge {
@@ -70,10 +109,11 @@ html, body {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(226, 147, 63, 0.12);
     border: 1px solid var(--primary);
     border-radius: 9999px;
-    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
     color: var(--primary);
     font-weight: 500;
 }
@@ -197,7 +237,7 @@ html, body {
 .chart-control-button:hover:not(:disabled),
 .chart-reset-button:hover:not(:disabled),
 .chart-range-button:hover:not(:disabled) {
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(226, 147, 63, 0.1);
     border-color: var(--primary);
     color: var(--primary);
 }
@@ -228,6 +268,39 @@ html, body {
 #main-chart {
     width: 100% !important;
     height: 100% !important;
+}
+
+.chart-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 2rem;
+}
+
+.chart-empty-wave {
+    width: min(220px, 60%);
+    height: 48px;
+    color: var(--current);
+    opacity: 0.55;
+    margin-bottom: 0.75rem;
+}
+
+.chart-empty-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chart-empty-subtitle {
+    max-width: 32ch;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
 }
 
 /* Controls */
@@ -286,8 +359,8 @@ html, body {
 .radio-option input:checked + .radio-label {
     background: var(--primary);
     border-color: var(--primary);
-    color: white;
-    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.2);
+    color: var(--ink);
+    box-shadow: 0 0 0 3px rgba(226, 147, 63, 0.2);
 }
 
 .radio-option input:focus + .radio-label {
@@ -314,7 +387,7 @@ html, body {
 .date-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.2);
+    box-shadow: 0 0 0 3px rgba(226, 147, 63, 0.2);
 }
 
 /* Upload Area */
@@ -344,19 +417,25 @@ html, body {
 
 .drop-area:hover {
     border-color: var(--primary);
-    background: rgba(0, 212, 170, 0.05);
+    background: rgba(226, 147, 63, 0.05);
 }
 
 .drop-area.dragging {
     border-color: var(--primary);
-    background: rgba(0, 212, 170, 0.1);
+    background: rgba(226, 147, 63, 0.1);
     transform: scale(1.02);
 }
 
 .upload-icon {
-    font-size: 3rem;
+    width: 2.75rem;
+    height: 2.75rem;
     margin-bottom: 1rem;
-    opacity: 0.6;
+    color: var(--text-secondary);
+}
+
+.upload-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .upload-title {
@@ -384,7 +463,7 @@ html, body {
 .fetch-button {
     appearance: none;
     border: 1px solid var(--primary);
-    background: rgba(0, 212, 170, 0.08);
+    background: rgba(226, 147, 63, 0.08);
     color: var(--primary);
     padding: 0.625rem 1rem;
     border-radius: 0.5rem;
@@ -396,7 +475,7 @@ html, body {
 
 .fetch-button:hover:not(:disabled) {
     background: var(--primary);
-    color: #0b0f14;
+    color: var(--ink);
 }
 
 .fetch-button:disabled {
@@ -441,21 +520,21 @@ html, body {
 }
 
 .status-message.success {
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+    background: rgba(127, 179, 71, 0.1);
+    border: 1px solid rgba(127, 179, 71, 0.3);
     color: var(--success);
 }
 
 .status-message.error {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(226, 88, 90, 0.1);
+    border: 1px solid rgba(226, 88, 90, 0.3);
     color: var(--error);
 }
 
 .status-message.info {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    color: #3b82f6;
+    background: rgba(89, 179, 171, 0.1);
+    border: 1px solid rgba(89, 179, 171, 0.3);
+    color: var(--current);
 }
 
 .status-icon {
@@ -675,4 +754,29 @@ html, body {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+}
+
+/* Flatpickr — bring the vendor dark theme's accent in line with the copper palette */
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover,
+.flatpickr-day.selected:focus {
+    background: var(--copper);
+    border-color: var(--copper);
+    color: var(--ink);
+}
+
+.flatpickr-day.today {
+    border-color: var(--copper);
+}
+
+.flatpickr-day.today:hover,
+.flatpickr-day.today:focus {
+    background: var(--copper);
+    border-color: var(--copper);
+    color: var(--ink);
+}
+
+.flatpickr-day:hover {
+    background: var(--panel-light);
+    border-color: var(--panel-light);
 }

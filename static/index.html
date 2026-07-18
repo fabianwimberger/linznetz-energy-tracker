@@ -15,7 +15,16 @@
         <!-- Header -->
         <header class="header">
             <h1 class="header-title">
-                <span class="header-icon">⚡</span>
+                <span class="header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="8.2"/>
+                        <line x1="12" y1="4.6" x2="12" y2="6.2"/>
+                        <line x1="5.98" y1="8.3" x2="7.35" y2="9.1"/>
+                        <line x1="18.02" y1="8.3" x2="16.65" y2="9.1"/>
+                        <line x1="12" y1="12" x2="16.2" y2="7.6"/>
+                        <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
                 <span>Energy Analytics</span>
             </h1>
             <div class="status-badge">
@@ -42,6 +51,13 @@
                     </div>
                     <div class="chart-container">
                         <canvas id="main-chart" role="img" aria-label="Energy consumption chart"></canvas>
+                        <div id="chart-empty-state" class="chart-empty-state hidden" role="status">
+                            <svg class="chart-empty-wave" viewBox="0 0 200 60" fill="none" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="M0 40 C 20 10, 40 10, 60 30 S 100 55, 120 35 S 160 5, 200 25" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                            <p class="chart-empty-title">No data yet</p>
+                            <p class="chart-empty-subtitle">Drop a CSV export or fetch the latest reading to see your consumption trend.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -90,7 +106,13 @@
 
                     <form id="upload-form" class="upload-zone">
                         <div class="drop-area" id="upload-area">
-                            <div class="upload-icon" aria-hidden="true">📊</div>
+                            <div class="upload-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 15.5v3a1.5 1.5 0 0 0 1.5 1.5h13a1.5 1.5 0 0 0 1.5-1.5v-3"/>
+                                <path d="M12 3.5v10.5"/>
+                                <path d="M8 10.5 12 14.5 16 10.5"/>
+                            </svg>
+                        </div>
                             <div class="upload-title">Drop CSV files here</div>
                             <div class="upload-subtitle">or click to browse • Auto-imports on selection</div>
                             <input
