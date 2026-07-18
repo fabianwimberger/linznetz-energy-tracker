@@ -10,6 +10,19 @@ VENDOR_DIR = Path(__file__).parent / "static" / "vendor"
 VENDOR_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def get_latest_npm_version(package: str) -> str:
+    url = f"https://registry.npmjs.org/{package}/latest"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+            return data["version"]
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"npm registry error for {package}: {e.code}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Network error while contacting npm registry: {e.reason}") from e
+
+
 def get_latest_github_release(repo: str) -> str:
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
@@ -74,11 +87,33 @@ def download_flatpickr() -> None:
         download_file(url, dest)
 
 
+def download_fonts() -> None:
+    fonts_dir = VENDOR_DIR / "fonts"
+    fonts_dir.mkdir(parents=True, exist_ok=True)
+
+    space_grotesk_version = get_latest_npm_version("@fontsource/space-grotesk")
+    print(f"Latest Space Grotesk version: {space_grotesk_version}")
+    download_file(
+        f"https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk@{space_grotesk_version}"
+        "/files/space-grotesk-latin-700-normal.woff2",
+        fonts_dir / "space-grotesk-700.woff2",
+    )
+
+    plex_mono_version = get_latest_npm_version("@fontsource/ibm-plex-mono")
+    print(f"Latest IBM Plex Mono version: {plex_mono_version}")
+    download_file(
+        f"https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@{plex_mono_version}"
+        "/files/ibm-plex-mono-latin-500-normal.woff2",
+        fonts_dir / "ibm-plex-mono-500.woff2",
+    )
+
+
 def main() -> None:
     print("Downloading vendor libraries...")
     try:
         download_chartjs()
         download_flatpickr()
+        download_fonts()
         print("Done.")
     except Exception as e:
         print(f"Error: {e}")
