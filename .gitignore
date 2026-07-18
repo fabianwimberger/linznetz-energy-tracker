@@ -63,6 +63,7 @@ htmlcov/
 # Vendor libraries (auto-downloaded via download_vendors.py)
 static/vendor/*.js
 static/vendor/*.css
+static/vendor/fonts/
 
 # Temporary files
 *.tmp

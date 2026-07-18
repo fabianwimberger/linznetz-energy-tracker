@@ -23,7 +23,7 @@ data without a SMA device on the network — this is the right one.
 
 <p align="center">
   <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
-  <br><em>Daily view with 90-day moving average, seasonal trends, and the new "Fetch latest from LinzNetz" button</em>
+  <br><em>Daily view with 90-day moving average and seasonal trends</em>
 </p>
 
 Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
@@ -234,3 +234,5 @@ This software includes the following open-source components:
 | Chart.js | [MIT](https://github.com/chartjs/Chart.js/blob/master/LICENSE) | https://github.com/chartjs/Chart.js |
 | chartjs-plugin-zoom | [MIT](https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE) | https://github.com/chartjs/chartjs-plugin-zoom |
 | Flatpickr | [MIT](https://github.com/flatpickr/flatpickr/blob/master/LICENSE.md) | https://github.com/flatpickr/flatpickr |
+| Space Grotesk | [OFL-1.1](https://github.com/floriankarsten/space-grotesk/blob/master/OFL.txt) | https://github.com/floriankarsten/space-grotesk |
+| IBM Plex Mono | [OFL-1.1](https://github.com/IBM/plex/blob/master/LICENSE.txt) | https://github.com/IBM/plex |
