@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateEntryCount() {
         try {
             const stats = await fetchData('/api/stats');
-            if (stats && stats.total_readings) {
+            if (stats && typeof stats.total_readings === 'number') {
                 const count = stats.total_readings.toLocaleString();
                 elements.statusBadge.textContent = `${count} entries`;
             }
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function panChart(delta) {
         if (!state.chart) return;
-        state.chart.pan({x: delta}, undefined, 'default');
+        state.chart.pan({x: delta}, undefined, 'none');
     }
 
     function resetZoom() {
