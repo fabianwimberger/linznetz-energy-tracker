@@ -41,6 +41,7 @@ moving averages and simple forecasts.
 - **Handles both formats** from Austrian grid operators:
   - `Datum von / Datum bis / Energiemenge in kWh` (quarter-hourly)
   - `Datum / Energiemenge in kWh` (daily)
+- **CSV export** — download quarter-hourly or daily data, re-importable as-is
 - **SQLite** — no external database required
 
 ## Quick Start
@@ -206,6 +207,18 @@ Datum;Energiemenge in kWh
 
 Decimal values use a comma as separator. The delimiter (`;` / `,` / tab) is
 auto-detected.
+
+### Export
+
+`GET /api/export` downloads your data in the same format shown above, so the
+file can be re-imported (e.g. into a fresh instance) without any conversion.
+
+| Parameter | Values | Description |
+|---|---|---|
+| `granularity` | `raw` (default), `daily` | Quarter-hourly readings or the daily summary |
+| `from`, `to` | `YYYY-MM-DD` | Optional inclusive date range |
+
+Download links are also available in the sidebar under **Data Export**.
 
 ## Development
 
