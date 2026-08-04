@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from sqlalchemy import text
 
 import app as app_module
 from csv_import import CSVProcessor
@@ -405,3 +406,29 @@ class TestExportEndpoint:
 
         assert result["status"] == "success"
         assert result["records_processed"] == 96
+
+    @pytest.mark.asyncio
+    async def test_export_raw_ignores_corrupted_date_to(self, client):
+        """Rows migrated before schema v5 have a reading_date_to that is
+        local wall-clock time mislabeled with a UTC offset. Export must
+        derive 'Datum bis' from reading_date_from + 15min, not trust it."""
+        engine = app_module.db_context["engine"]
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO energy_readings "
+                    "(reading_date_from, reading_date_to, energy_kwh, date_local, time_slot_local) "
+                    "VALUES (:reading_from, :reading_to, :kwh, :date_local, :slot)"
+                ),
+                {
+                    "reading_from": "2024-03-31T22:00:00+00:00",
+                    "reading_to": "2024-04-01T00:15:00+00:00",  # corrupted
+                    "kwh": 0.118,
+                    "date_local": "2024-04-01",
+                    "slot": "00:00",
+                },
+            )
+
+        response = client.get("/api/export?granularity=raw")
+        lines = response.text.strip("\r\n").split("\r\n")
+        assert lines[1] == "01.04.2024 00:00;01.04.2024 00:15;0,118"

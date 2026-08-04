@@ -366,7 +366,7 @@ async def export_csv(
 
     if granularity == "raw":
         date_column = "date_local"
-        query = "SELECT reading_date_from, reading_date_to, energy_kwh FROM energy_readings"
+        query = "SELECT reading_date_from, energy_kwh FROM energy_readings"
     else:
         date_column = "date"
         query = "SELECT date, total_energy_kwh FROM daily_energy_summary"
@@ -387,18 +387,22 @@ async def export_csv(
 
     if granularity == "raw":
         header = ["Datum von", "Datum bis", "Energiemenge in kWh"]
-        data_rows = [
-            [
-                datetime.fromisoformat(row["reading_date_from"])
-                .astimezone(VIENNA_TZ)
-                .strftime("%d.%m.%Y %H:%M"),
-                datetime.fromisoformat(row["reading_date_to"])
-                .astimezone(VIENNA_TZ)
-                .strftime("%d.%m.%Y %H:%M"),
-                _format_kwh(row["energy_kwh"]),
-            ]
-            for row in rows
-        ]
+        data_rows = []
+        for row in rows:
+            # Derive "Datum bis" from "Datum von" + 15min instead of trusting
+            # the stored reading_date_to: rows migrated before schema v5 have
+            # a reading_date_to that is local wall-clock time mislabeled with
+            # a UTC offset, which would otherwise corrupt the exported gap.
+            from_utc = datetime.fromisoformat(row["reading_date_from"])
+            from_local = from_utc.astimezone(VIENNA_TZ)
+            to_local = (from_utc + timedelta(minutes=15)).astimezone(VIENNA_TZ)
+            data_rows.append(
+                [
+                    from_local.strftime("%d.%m.%Y %H:%M"),
+                    to_local.strftime("%d.%m.%Y %H:%M"),
+                    _format_kwh(row["energy_kwh"]),
+                ]
+            )
         filename = "energy-readings.csv"
     else:
         header = ["Datum", "Energiemenge in kWh"]
