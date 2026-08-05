@@ -136,6 +136,26 @@
                         <div id="upload-status" class="status-list" role="status" aria-live="polite"></div>
                     </form>
                 </section>
+
+                <!-- Data Export -->
+                <section class="sidebar-section">
+                    <h3 class="section-title">Data Export</h3>
+
+                    <div class="export-buttons">
+                        <a
+                            href="/api/export?granularity=raw"
+                            class="export-button"
+                            download
+                            aria-label="Download quarter-hourly readings as CSV"
+                        >Export 15-min CSV</a>
+                        <a
+                            href="/api/export?granularity=daily"
+                            class="export-button"
+                            download
+                            aria-label="Download daily summary as CSV"
+                        >Export daily CSV</a>
+                    </div>
+                </section>
             </aside>
         </main>
     </div>

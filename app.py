@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Energy Consumption Tracker"""
 
+import csv
+import io
 import logging
 import os
 from collections import defaultdict
@@ -15,7 +17,7 @@ import uvicorn
 from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -45,6 +47,8 @@ LINZNETZ_LOOKBACK_DAYS = int(os.getenv("LINZNETZ_LOOKBACK_DAYS", "7"))
 db_context: dict[str, Any] = {}
 upload_tracker: dict[str, list[datetime]] = defaultdict(list)
 
+VIENNA_TZ = ZoneInfo("Europe/Vienna")
+
 
 def _expected_slots(d: date) -> int:
     """Return the number of 15-minute slots expected for a given local date.
@@ -54,10 +58,27 @@ def _expected_slots(d: date) -> int:
     - Spring DST (23h): 92 slots
     - Autumn DST (25h): 100 slots
     """
-    tz = ZoneInfo("Europe/Vienna")
-    start = datetime(d.year, d.month, d.day, tzinfo=tz)
+    start = datetime(d.year, d.month, d.day, tzinfo=VIENNA_TZ)
     end = start + timedelta(days=1)
     return int((end - start).total_seconds() / 900)
+
+
+def _format_kwh(value: float) -> str:
+    """Format like the vendor CSVs: 3 decimals, comma separator."""
+    return f"{value:.3f}".replace(".", ",")
+
+
+def _stream_csv(header: list[str], data_rows: list[list[str]]):
+    """Yield CSV lines one at a time in the vendor format (semicolon-delimited)."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
+    writer.writerow(header)
+    yield buffer.getvalue()
+    for row in data_rows:
+        buffer.seek(0)
+        buffer.truncate(0)
+        writer.writerow(row)
+        yield buffer.getvalue()
 
 
 @asynccontextmanager
@@ -327,6 +348,78 @@ async def fetch_from_linznetz(request: Request):
                     file_path.unlink(missing_ok=True)
 
     return results
+
+
+@api_router.get("/export")
+async def export_csv(
+    granularity: Literal["raw", "daily"] = Query("raw"),
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+):
+    """Export readings as CSV in the same format the importer accepts.
+
+    'raw' exports quarter-hourly readings (Datum von/Datum bis), 'daily'
+    exports the daily summary (Datum) — matching the two importable shapes.
+    """
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=400, detail="'from' must not be after 'to'")
+
+    if granularity == "raw":
+        date_column = "date_local"
+        query = "SELECT reading_date_from, energy_kwh FROM energy_readings"
+    else:
+        date_column = "date"
+        query = "SELECT date, total_energy_kwh FROM daily_energy_summary"
+
+    conditions = []
+    params: dict[str, Any] = {}
+    if date_from:
+        conditions.append(f"{date_column} >= :date_from")
+        params["date_from"] = date_from.isoformat()
+    if date_to:
+        conditions.append(f"{date_column} <= :date_to")
+        params["date_to"] = date_to.isoformat()
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += f" ORDER BY {date_column}"
+
+    rows = await _fetch_data(db_context["engine"], query, params)
+
+    if granularity == "raw":
+        header = ["Datum von", "Datum bis", "Energiemenge in kWh"]
+        data_rows = []
+        for row in rows:
+            # Derive "Datum bis" from "Datum von" + 15min instead of trusting
+            # the stored reading_date_to: rows migrated before schema v5 have
+            # a reading_date_to that is local wall-clock time mislabeled with
+            # a UTC offset, which would otherwise corrupt the exported gap.
+            from_utc = datetime.fromisoformat(row["reading_date_from"])
+            from_local = from_utc.astimezone(VIENNA_TZ)
+            to_local = (from_utc + timedelta(minutes=15)).astimezone(VIENNA_TZ)
+            data_rows.append(
+                [
+                    from_local.strftime("%d.%m.%Y %H:%M"),
+                    to_local.strftime("%d.%m.%Y %H:%M"),
+                    _format_kwh(row["energy_kwh"]),
+                ]
+            )
+        filename = "energy-readings.csv"
+    else:
+        header = ["Datum", "Energiemenge in kWh"]
+        data_rows = [
+            [
+                date.fromisoformat(row["date"]).strftime("%d.%m.%Y"),
+                _format_kwh(row["total_energy_kwh"]),
+            ]
+            for row in rows
+        ]
+        filename = "energy-daily-summary.csv"
+
+    return StreamingResponse(
+        _stream_csv(header, data_rows),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 async def _fetch_data(engine, query: str, params: dict[str, Any] | None = None):

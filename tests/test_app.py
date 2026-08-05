@@ -1,10 +1,15 @@
 """Tests for FastAPI application endpoints."""
 
+import io
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
+from sqlalchemy import text
+
 import app as app_module
+from csv_import import CSVProcessor
 from linznetz_fetcher import FetchError, NoDataError
 
 VIENNA_TZ = ZoneInfo("Europe/Vienna")
@@ -323,3 +328,107 @@ class TestFetchEndpoint:
         errors = [r for r in data if r["status"] == "error"]
         assert len(errors) == 1
         assert errors[0]["error"] == "boom"
+
+
+class TestExportEndpoint:
+    def test_export_raw_empty(self, client):
+        response = client.get("/api/export?granularity=raw")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert response.text == "Datum von;Datum bis;Energiemenge in kWh\r\n"
+
+    def test_export_daily_empty(self, client):
+        response = client.get("/api/export?granularity=daily")
+        assert response.status_code == 200
+        assert response.text == "Datum;Energiemenge in kWh\r\n"
+
+    def test_export_defaults_to_raw(self, client):
+        response = client.get("/api/export")
+        assert response.text.startswith("Datum von;Datum bis")
+
+    def test_export_invalid_granularity(self, client):
+        response = client.get("/api/export?granularity=weekly")
+        assert response.status_code == 422
+
+    def test_export_from_after_to_rejected(self, client):
+        response = client.get("/api/export?from=2025-02-01&to=2025-01-01")
+        assert response.status_code == 400
+
+    def test_export_content_disposition(self, client):
+        raw_response = client.get("/api/export?granularity=raw")
+        assert (
+            raw_response.headers["content-disposition"]
+            == 'attachment; filename="energy-readings.csv"'
+        )
+
+        daily_response = client.get("/api/export?granularity=daily")
+        assert (
+            daily_response.headers["content-disposition"]
+            == 'attachment; filename="energy-daily-summary.csv"'
+        )
+
+    def test_export_daily_reflects_imported_data(self, client):
+        content = b"Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n"
+        client.post("/api/import", files={"files": ("daily.csv", io.BytesIO(content), "text/csv")})
+
+        response = client.get("/api/export?granularity=daily")
+        lines = response.text.strip("\r\n").split("\r\n")
+        assert lines[0] == "Datum;Energiemenge in kWh"
+        assert "01.01.2025;12,345" in lines
+        assert "02.01.2025;10,000" in lines
+
+    def test_export_daily_date_range_filter(self, client):
+        content = b"Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n"
+        client.post("/api/import", files={"files": ("daily.csv", io.BytesIO(content), "text/csv")})
+
+        response = client.get("/api/export?granularity=daily&from=2025-01-02&to=2025-01-02")
+        lines = response.text.strip("\r\n").split("\r\n")
+        assert lines == ["Datum;Energiemenge in kWh", "02.01.2025;10,000"]
+
+    @pytest.mark.asyncio
+    async def test_export_raw_roundtrip(self, client, test_engine, tmp_path: Path):
+        """A day imported, exported, and re-imported into a fresh database
+        must produce the same reading count and values."""
+        day = date(2025, 6, 15)  # no DST transition
+        content = _quarter_hour_csv_for(day, kwh=0.789)
+        client.post(
+            "/api/import", files={"files": ("quarter.csv", io.BytesIO(content), "text/csv")}
+        )
+
+        export_response = client.get("/api/export?granularity=raw")
+        assert export_response.status_code == 200
+
+        exported_file = tmp_path / "exported.csv"
+        exported_file.write_bytes(export_response.content)
+
+        processor = CSVProcessor(test_engine)
+        result = await processor.process_csv_file(str(exported_file))
+
+        assert result["status"] == "success"
+        assert result["records_processed"] == 96
+
+    @pytest.mark.asyncio
+    async def test_export_raw_ignores_corrupted_date_to(self, client):
+        """Rows migrated before schema v5 have a reading_date_to that is
+        local wall-clock time mislabeled with a UTC offset. Export must
+        derive 'Datum bis' from reading_date_from + 15min, not trust it."""
+        engine = app_module.db_context["engine"]
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO energy_readings "
+                    "(reading_date_from, reading_date_to, energy_kwh, date_local, time_slot_local) "
+                    "VALUES (:reading_from, :reading_to, :kwh, :date_local, :slot)"
+                ),
+                {
+                    "reading_from": "2024-03-31T22:00:00+00:00",
+                    "reading_to": "2024-04-01T00:15:00+00:00",  # corrupted
+                    "kwh": 0.118,
+                    "date_local": "2024-04-01",
+                    "slot": "00:00",
+                },
+            )
+
+        response = client.get("/api/export?granularity=raw")
+        lines = response.text.strip("\r\n").split("\r\n")
+        assert lines[1] == "01.04.2024 00:00;01.04.2024 00:15;0,118"
