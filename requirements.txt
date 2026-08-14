@@ -1,11 +1,11 @@
 # Core dependencies
 fastapi==0.141.1
-uvicorn[standard]==0.52.1
+uvicorn[standard]==0.52.3
 pydantic==2.13.4
 
 # Database (Async)
 aiosqlite==0.22.1
-sqlalchemy==2.0.51
+sqlalchemy==2.0.52
 
 # Data processing
 python-dateutil==2.9.0.post0
