@@ -45,8 +45,6 @@ class FormState:
     granularity_radio_indices: dict[str, str]
     plant_field: str | None
     plant_id: str | None
-    from_date_source: str | None
-    to_date_source: str | None
     unit_field: str | None
 
 
@@ -89,8 +87,6 @@ def _replace_view_state(state: FormState, view_state: str) -> FormState:
         granularity_radio_indices=state.granularity_radio_indices,
         plant_field=state.plant_field,
         plant_id=state.plant_id,
-        from_date_source=state.from_date_source,
-        to_date_source=state.to_date_source,
         unit_field=state.unit_field,
     )
 
@@ -160,17 +156,12 @@ class LinzNetzFetcher:
         if pm:
             plant_field, plant_id = pm.group(1), pm.group(2)
 
-        from_src = re.search(r'<script id="([^"]+)"[^>]*>changeFromDate = function', html)
-        to_src = re.search(r'<script id="([^"]+)"[^>]*>assignToDate = function', html)
-
         return FormState(
             view_state=view_state,
             granularity_field=granularity_field,
             granularity_radio_indices=indices,
             plant_field=plant_field,
             plant_id=plant_id,
-            from_date_source=from_src.group(1) if from_src else None,
-            to_date_source=to_src.group(1) if to_src else None,
             unit_field=None,
         )
 
@@ -237,40 +228,34 @@ class LinzNetzFetcher:
             granularity_radio_indices=state.granularity_radio_indices,
             plant_field=state.plant_field,
             plant_id=state.plant_id,
-            from_date_source=state.from_date_source,
-            to_date_source=state.to_date_source,
             unit_field=self._find_unit_field(inner_html, state.granularity_field),
         )
 
-    async def _set_calendar(
-        self, state: FormState, source: str, param_name: str, value: str
+    async def _change_calendar_field(
+        self, state: FormState, field: str, value: str, *, render: str | None = None
     ) -> str:
-        if not state.plant_field or not state.plant_id:
-            raise FetchError("plant field/id missing — cannot send calendar AJAX")
         data = {
             "jakarta.faces.partial.ajax": "true",
-            "jakarta.faces.source": source,
-            "jakarta.faces.partial.execute": "@all",
-            "jakarta.faces.partial.render": "myForm1:panel_calendarToRegion",
-            source: source,
-            param_name: value,
-            "myform": "myform",
-            state.plant_field: state.plant_id,
-            "plantSelection": state.plant_id,
+            "jakarta.faces.source": field,
+            "jakarta.faces.partial.execute": field,
+            "jakarta.faces.behavior.event": "change",
+            "jakarta.faces.partial.event": "change",
+            "myForm1": "myForm1",
+            field: value,
             "jakarta.faces.ViewState": state.view_state,
         }
+        if render:
+            data["jakarta.faces.partial.render"] = render
         r = await self._ajax_post(data)
         return _extract_view_state_from_partial(r.text)
 
     async def _set_dates(self, state: FormState, date_from: date, date_to: date) -> FormState:
-        if not state.from_date_source or not state.to_date_source:
-            raise FetchError("calendar widget script ids missing")
-        from_src = state.from_date_source
-        to_src = state.to_date_source
-        vs = await self._set_calendar(state, from_src, "changeFromDate", _fmt_de(date_from))
-        state2 = _replace_view_state(state, vs)
-        vs = await self._set_calendar(state2, to_src, "assignToDate", _fmt_de(date_to))
-        return _replace_view_state(state2, vs)
+        vs = await self._change_calendar_field(
+            state, "myForm1:calendarFromRegion", _fmt_de(date_from), render="myForm1"
+        )
+        state = _replace_view_state(state, vs)
+        vs = await self._change_calendar_field(state, "myForm1:calendarToRegion", _fmt_de(date_to))
+        return _replace_view_state(state, vs)
 
     @staticmethod
     def _find_csv_button(xml: str) -> str:

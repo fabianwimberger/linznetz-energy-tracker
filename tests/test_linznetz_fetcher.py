@@ -1,7 +1,6 @@
 """Tests for linznetz_fetcher module."""
 
 import argparse
-import asyncio
 import sys
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -82,8 +81,6 @@ class TestReplaceViewState:
             granularity_radio_indices={},
             plant_field="pf",
             plant_id="pid",
-            from_date_source="fs",
-            to_date_source="ts",
             unit_field="uf",
         )
         new = _replace_view_state(old, "new")
@@ -102,11 +99,7 @@ class TestParseInitialState:
         )
 
     def test_full(self):
-        html = self._html(
-            '<input name="myForm:selectedPlantID" value="PLANT42">'
-            '<script id="scriptFrom">changeFromDate = function</script>'
-            '<script id="scriptTo">assignToDate = function</script>'
-        )
+        html = self._html('<input name="myForm:selectedPlantID" value="PLANT42">')
         state = LinzNetzFetcher._parse_initial_state(html)
         assert state.view_state == "vs1"
         assert state.granularity_field == "myForm:grid_eval:selectedClass"
@@ -116,17 +109,13 @@ class TestParseInitialState:
         }
         assert state.plant_field == "myForm:selectedPlantID"
         assert state.plant_id == "PLANT42"
-        assert state.from_date_source == "scriptFrom"
-        assert state.to_date_source == "scriptTo"
         assert state.unit_field is None
 
-    def test_no_plant_no_scripts(self):
+    def test_no_plant(self):
         html = self._html()
         state = LinzNetzFetcher._parse_initial_state(html)
         assert state.plant_field is None
         assert state.plant_id is None
-        assert state.from_date_source is None
-        assert state.to_date_source is None
 
     def test_missing_granularity_radios(self):
         html = '<input name="jakarta.faces.ViewState" value="vs1">'
@@ -232,8 +221,6 @@ class TestSelectGranularity:
             granularity_radio_indices={"ConsumQuarter": "0"},
             plant_field="pf",
             plant_id="pid",
-            from_date_source="fs",
-            to_date_source="ts",
             unit_field=None,
         )
         new_state = await f._select_granularity(
@@ -251,8 +238,6 @@ class TestSelectGranularity:
             granularity_radio_indices={},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         with pytest.raises(FetchError, match="granularity ConsumQuarter not in radios"):
@@ -273,15 +258,13 @@ class TestSelectGranularity:
             granularity_radio_indices={"ConsumQuarter": "0"},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         with pytest.raises(FetchError, match="did not contain myForm1 update"):
             await f._select_granularity(state, "quarter", date(2024, 1, 1), date(2024, 1, 2))
 
 
-class TestSetCalendar:
+class TestChangeCalendarField:
     @pytest.mark.asyncio
     async def test_success(self):
         f = LinzNetzFetcher("u", "p")
@@ -295,30 +278,14 @@ class TestSetCalendar:
             view_state="vs1",
             granularity_field="gf",
             granularity_radio_indices={},
-            plant_field="pf",
-            plant_id="pid",
-            from_date_source="fs",
-            to_date_source="ts",
-            unit_field=None,
-        )
-        result = await f._set_calendar(state, "fs", "changeFromDate", "01.01.2024")
-        assert result == "vs2"
-
-    @pytest.mark.asyncio
-    async def test_missing_plant(self):
-        f = LinzNetzFetcher("u", "p")
-        state = FormState(
-            view_state="vs1",
-            granularity_field="gf",
-            granularity_radio_indices={},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
-        with pytest.raises(FetchError, match="plant field/id missing"):
-            await f._set_calendar(state, "src", "param", "val")
+        result = await f._change_calendar_field(
+            state, "myForm1:calendarFromRegion", "01.01.2024", render="myForm1"
+        )
+        assert result == "vs2"
 
 
 class TestSetDates:
@@ -337,27 +304,11 @@ class TestSetDates:
             granularity_radio_indices={},
             plant_field="pf",
             plant_id="pid",
-            from_date_source="fs",
-            to_date_source="ts",
             unit_field=None,
         )
         new_state = await f._set_dates(state, date(2024, 1, 1), date(2024, 1, 2))
         assert new_state.view_state == "vs_next"
-
-    def test_missing_calendar_sources(self):
-        f = LinzNetzFetcher("u", "p")
-        state = FormState(
-            view_state="vs1",
-            granularity_field="gf",
-            granularity_radio_indices={},
-            plant_field="pf",
-            plant_id="pid",
-            from_date_source=None,
-            to_date_source=None,
-            unit_field=None,
-        )
-        with pytest.raises(FetchError, match="calendar widget script ids missing"):
-            asyncio.run(f._set_dates(state, date(2024, 1, 1), date(2024, 1, 2)))
+        assert f._client.post.await_count == 2
 
 
 class TestClickDisplay:
@@ -376,8 +327,6 @@ class TestClickDisplay:
             granularity_radio_indices={"ConsumQuarter": "0"},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         with pytest.raises(NoDataError, match="no data available"):
@@ -401,8 +350,6 @@ class TestClickDisplay:
             granularity_radio_indices={"ConsumQuarter": "0"},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         vs, btn = await f._click_display(
@@ -429,8 +376,6 @@ class TestDownloadCsv:
             granularity_radio_indices={},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         body, name = await f._download_csv(
@@ -455,8 +400,6 @@ class TestDownloadCsv:
             granularity_radio_indices={},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         with pytest.raises(FetchError, match="expected CSV, got HTML"):
@@ -489,8 +432,6 @@ class TestDownloadCsv:
             granularity_radio_indices={},
             plant_field=None,
             plant_id=None,
-            from_date_source=None,
-            to_date_source=None,
             unit_field=None,
         )
         _, name = await f._download_csv(
