@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from csv_import import CSVImportError, CSVProcessor
 from db_init import init_database
 from linznetz_fetcher import FetchError, LinzNetzFetcher, NoDataError
+from version import __version__
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Energy Analysis",
     description="Web application for graphical analysis of energy consumption.",
-    version="1.1.0",
+    version=__version__,
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
