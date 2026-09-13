@@ -33,6 +33,9 @@ testpaths = ["tests"]
 [tool.coverage.run]
 omit = ["download_vendors.py"]
 
+[tool.coverage.report]
+fail_under = 85
+
 [tool.ruff]
 target-version = "py313"
 line-length = 100
