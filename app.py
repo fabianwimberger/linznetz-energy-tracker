@@ -107,6 +107,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
+    openapi_url=None,
 )
 
 # Guard against wildcard + credentials misconfiguration
