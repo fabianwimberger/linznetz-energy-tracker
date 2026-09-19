@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.2] - 2026-09-19
+
+Hardens the vendor asset download, single-sources the application version, and stops the API docs from being exposed.
+
+### Fixes
+
+- Verify the SHA-256 hash of every downloaded vendor asset and pin the expected version, so a tampered or unexpected file fails the build instead of shipping
+- Derive the version reported by the app from a single `version.py`, removing the drift between the API metadata and `pyproject.toml`
+- Disable the OpenAPI schema and docs endpoints (`/openapi.json`, `/docs`, `/redoc`) — they exposed the full API surface to any network client
+
+### Dependencies
+
+- Bump ruff from 0.16.5 to 0.16.7
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Container image](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
+
 ## [v1.5.1] - 2026-09-01
 
 Fixes a broken daily CSV import after LinzNetz changed the consumption portal's calendar widget.
