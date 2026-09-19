@@ -1,6 +1,6 @@
 [project]
 name = "linznetz-energy-tracker"
-version = "1.2.1"
+version = "1.5.1"
 description = "Web application for graphical analysis of energy consumption from Austrian smart-meter CSV exports."
 requires-python = ">=3.13"
 
@@ -32,6 +32,9 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = ["download_vendors.py"]
+
+[tool.coverage.report]
+fail_under = 85
 
 [tool.ruff]
 target-version = "py313"

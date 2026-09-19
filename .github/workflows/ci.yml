@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.14"
 
 jobs:
   lint:
@@ -54,14 +54,14 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest -v --cov=. --cov-report=xml
+        run: pytest -v --cov=. --cov-report=xml --cov-fail-under=85
 
       - name: Upload coverage
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   docker-amd64:
     name: Docker Build (amd64)
