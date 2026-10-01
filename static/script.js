@@ -547,7 +547,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, false);
     }
 
-    // Initialize
     async function initialize() {
         try {
             // Get latest date for default
@@ -559,7 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Use today as default date
             }
 
-            // Initialize Flatpickr
             state.flatpickrInstance = flatpickr(elements.datePickerInput, {
                 dateFormat: "Y-m-d",
                 defaultDate: defaultDate,
@@ -570,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Event listeners
             elements.uploadForm.addEventListener('submit', handleUpload);
             elements.aggregationControls.forEach(radio =>
                 radio.addEventListener('change', handleAggregationChange)
@@ -605,15 +602,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             updateZoomControls(true);
 
-            // Window resize
             window.addEventListener('resize', () => {
                 if (state.chart) state.chart.resize();
             });
 
-            // Drag and drop
             setupDragAndDrop();
 
-            // Load initial chart and entry count
             await updateChart();
             await updateEntryCount();
         } catch (error) {

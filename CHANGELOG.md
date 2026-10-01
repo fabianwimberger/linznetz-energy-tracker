@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.3] - 2026-10-01
+
+Installs SQLAlchemy's asyncio dependencies explicitly and removes redundant code commentary.
+
+### Dependencies
+
+- Install SQLAlchemy with the `asyncio` extra so greenlet is available.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.5.2...v1.5.3)
+
 ## [v1.5.2] - 2026-09-19
 
 Hardens the vendor asset download, single-sources the application version, and stops the API docs from being exposed.
