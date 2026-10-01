@@ -293,7 +293,6 @@ class CSVProcessor:
         file_hash = self.calculate_file_hash(file_path)
 
         async with self.engine.begin() as conn:
-            # Check if already imported
             result = await conn.execute(
                 text("SELECT id FROM import_log WHERE file_hash = :hash"),
                 {"hash": file_hash},
@@ -306,7 +305,6 @@ class CSVProcessor:
                     "message": "File already imported (hash match)",
                 }
 
-            # Log import start
             log_id = str(uuid4())
             await conn.execute(
                 text("""
@@ -319,12 +317,10 @@ class CSVProcessor:
             )
 
             try:
-                # Detect CSV format
                 with open(file_path, encoding="utf-8-sig") as f:
                     sample = f.read(2048)
                     f.seek(0)
 
-                    # Try to detect dialect
                     try:
                         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
                     except csv.Error:
@@ -336,7 +332,6 @@ class CSVProcessor:
                 header_lower = [h.lower() for h in header_raw]
                 records_processed = 0
 
-                # Process based on detected format
                 if "datum von" in header_lower and "datum bis" in header_lower:
                     logger.info("Detected quarter-hourly format")
                     records_processed = await self._process_quarter_hourly_file(
@@ -354,7 +349,6 @@ class CSVProcessor:
                 if refresh_pattern:
                     await self._refresh_hourly_pattern(conn)
 
-                # Update import log
                 await conn.execute(
                     text("""
                         UPDATE import_log
@@ -374,7 +368,6 @@ class CSVProcessor:
                 }
 
             except Exception as e:
-                # Log failure
                 await conn.execute(
                     text("""
                         UPDATE import_log
