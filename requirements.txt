@@ -5,7 +5,7 @@ pydantic==2.13.5
 
 # Database (Async)
 aiosqlite==0.22.1
-sqlalchemy[asyncio]==2.0.54
+sqlalchemy[asyncio]==2.1.1
 
 # Data processing
 python-dateutil==2.9.0.post0

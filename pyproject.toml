@@ -9,7 +9,7 @@ dependencies = [
     "uvicorn[standard]==0.53.0",
     "pydantic==2.13.5",
     "aiosqlite==0.22.1",
-    "sqlalchemy[asyncio]==2.0.54",
+    "sqlalchemy[asyncio]==2.1.1",
     "python-dateutil==2.9.0.post0",
     "python-multipart==0.0.32",
     "aiofiles==25.1.0",
