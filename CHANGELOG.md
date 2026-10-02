@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.4] - 2026-10-02
+
+Updates the API server, asynchronous database dependencies, and development tools.
+
+### Dependencies
+
+- Bump FastAPI from 0.141.1 to 0.142.2.
+- Bump SQLAlchemy from 2.0.54 to 2.1.2, keeping the `asyncio` extra.
+- Bump Uvicorn from 0.53.0 to 0.54.0.
+- Bump Ruff from 0.16.8 to 0.16.10.
+- Bump mypy from 2.3.1 to 2.4.0.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.5.3...v1.5.4)
+
 ## [v1.5.3] - 2026-10-01
 
 Installs SQLAlchemy's asyncio dependencies explicitly and removes redundant code commentary.

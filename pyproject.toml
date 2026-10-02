@@ -1,15 +1,15 @@
 [project]
 name = "linznetz-energy-tracker"
-version = "1.5.3"
+version = "1.5.4"
 description = "Web application for graphical analysis of energy consumption from Austrian smart-meter CSV exports."
 requires-python = ">=3.13"
 
 dependencies = [
-    "fastapi==0.141.1",
+    "fastapi==0.142.2",
     "uvicorn[standard]==0.54.0",
     "pydantic==2.13.5",
     "aiosqlite==0.22.1",
-    "sqlalchemy[asyncio]==2.1.1",
+    "sqlalchemy[asyncio]==2.1.2",
     "python-dateutil==2.9.0.post0",
     "python-multipart==0.0.32",
     "aiofiles==25.1.0",
@@ -18,8 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.16.9",
-    "mypy==2.3.1",
+    "ruff==0.16.10",
+    "mypy==2.4.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
