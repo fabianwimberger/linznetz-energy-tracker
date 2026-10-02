@@ -1,11 +1,11 @@
 # Core dependencies
-fastapi==0.141.1
+fastapi==0.142.2
 uvicorn[standard]==0.54.0
 pydantic==2.13.5
 
 # Database (Async)
 aiosqlite==0.22.1
-sqlalchemy[asyncio]==2.1.1
+sqlalchemy[asyncio]==2.1.2
 
 # Data processing
 python-dateutil==2.9.0.post0
