@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "linznetz-energy-tracker"
-version = "1.5.4"
+version = "1.5.5"
 description = "Web application for graphical analysis of energy consumption from Austrian smart-meter CSV exports."
 requires-python = ">=3.13"
 
@@ -29,6 +33,9 @@ dev = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.setuptools]
+py-modules = ["app", "csv_import", "db_init", "linznetz_fetcher", "version"]
 
 [tool.coverage.run]
 omit = ["download_vendors.py"]

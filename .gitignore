@@ -58,6 +58,9 @@ docker-compose.override.yml
 .coverage
 htmlcov/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+coverage.xml
 .tox/
 
 # Vendor libraries (auto-downloaded via download_vendors.py)

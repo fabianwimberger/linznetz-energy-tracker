@@ -1,5 +1,7 @@
 .PHONY: all build up down clean lint format test typecheck setup
 
+PYTHON ?= .venv/bin/python
+
 all: build
 
 build:
@@ -20,20 +22,20 @@ clean:
 
 setup:
 	@echo "Downloading vendor libraries..."
-	@python download_vendors.py
+	@$(PYTHON) download_vendors.py
 
 lint:
 	@echo "Running linters..."
-	@ruff check .
+	@$(PYTHON) -m ruff check .
 
 format:
 	@echo "Formatting code..."
-	@ruff format .
+	@$(PYTHON) -m ruff format .
 
 typecheck:
 	@echo "Running type checker..."
-	@mypy . --ignore-missing-imports
+	@$(PYTHON) -m mypy .
 
 test:
 	@echo "Running tests..."
-	@pytest -v
+	@$(PYTHON) -m pytest -v --cov=. --cov-report=term-missing
