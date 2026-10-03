@@ -223,7 +223,8 @@ Download links are also available in the sidebar under **Data Export**.
 ## Development
 
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+python -m venv .venv
+.venv/bin/python -m pip install -e '.[dev]'
 make setup        # Download vendor libraries
 make test         # Run the test suite
 make lint         # Run linters
@@ -231,7 +232,7 @@ make typecheck    # Run type checker
 make format       # Format code
 
 # Run locally
-DATA_DIR=./data STATIC_DIR=./static python app.py
+env DATA_DIR=./data STATIC_DIR=./static .venv/bin/python app.py
 ```
 
 ## License

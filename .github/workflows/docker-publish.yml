@@ -10,7 +10,7 @@ on:
       - 'Dockerfile'
       - '.github/workflows/docker-publish.yml'
       - '**.py'
-      - 'requirements.txt'
+      - 'pyproject.toml'
 
 env:
   REGISTRY: ghcr.io
