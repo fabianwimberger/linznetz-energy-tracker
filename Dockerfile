@@ -1,13 +1,21 @@
+FROM python:3.14-alpine AS builder
+
+WORKDIR /app
+
+COPY . .
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/python -m pip install --no-cache-dir .
+RUN python download_vendors.py
+
 FROM python:3.14-alpine
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+COPY --from=builder /opt/venv /opt/venv
 COPY . .
-RUN python download_vendors.py
+COPY --from=builder /app/static/vendor /app/static/vendor
 
+ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
