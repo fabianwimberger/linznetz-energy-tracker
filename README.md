@@ -12,25 +12,19 @@ smart meter (Smart Meter / Intelligenter Zähler) CSV exports.
 
 ## Background
 
-| | LinzNetz Energy Tracker | [SMA Energy Tracker](https://github.com/fabianwimberger/sma-energy-tracker) |
-|---|---|---|
-| **Data source** | CSV exports from your grid operator | SMA JSON REST API |
-| **How it gets data** | You download and upload CSV files | Polls the SMA automatically |
-| **Best for** | Historical analysis, billing checks | Live monitoring, real-time charts |
-
-If your grid operator only gives you CSV exports — or you want to keep historical
-data without a SMA device on the network — this is the right one.
+Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
+files — either quarter-hourly intervals or daily totals. These exports are
+accurate, but spotting trends or comparing seasons in a spreadsheet is tedious.
+LinzNetz Energy Tracker imports the CSVs and gives you interactive charts with
+moving averages and simple forecasts.
 
 <p align="center">
   <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
   <br><em>Daily view with 90-day moving average and seasonal trends</em>
 </p>
 
-Austrian grid operators (Netzbetreiber) provide smart-meter data as raw CSV
-files — either quarter-hourly intervals or daily totals. These exports are
-accurate, but spotting trends or comparing seasons in a spreadsheet is tedious.
-LinzNetz Energy Tracker imports the CSVs and gives you interactive charts with
-moving averages and simple forecasts.
+For live readings from a Smart Meter Adapter instead of CSV files, see
+[SMA Energy Tracker](https://github.com/fabianwimberger/sma-energy-tracker).
 
 ## Features
 
@@ -46,24 +40,15 @@ moving averages and simple forecasts.
 
 ## Quick Start
 
-### Option 1: Using Pre-built Image (Recommended)
-
-Pre-built images support both **AMD64** and **ARM64** architectures.
-
-**Docker Compose:**
-
 ```bash
-# Clone the repository for docker-compose.yml
 git clone https://github.com/fabianwimberger/linznetz-energy-tracker.git
 cd linznetz-energy-tracker
-
-# Run with pre-built image
 docker compose up -d
-
-# Open UI at http://localhost:8000
 ```
 
-**Or with docker run:**
+Open `http://localhost:8000` and upload a CSV. The pre-built image runs on AMD64 and ARM64. Tags: `latest`, `main`, `vX.Y.Z`, `vX.Y`, `vX`, and the short commit SHA.
+
+Without Compose:
 
 ```bash
 docker run -d \
@@ -75,63 +60,32 @@ docker run -d \
   ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
 ```
 
-### Option 2: Build from Source
+### Build from source
 
 ```bash
-# Clone the repository
-git clone https://github.com/fabianwimberger/linznetz-energy-tracker.git
-cd linznetz-energy-tracker
-
-# Copy the override file to build locally
 cp docker-compose.override.yml.example docker-compose.override.yml
-
-# Build and run
 make build
 make up
-
-# Or using docker compose directly:
-# docker compose build
-# docker compose up -d
-
-# Open UI at http://localhost:8000
 ```
 
-### Available Image Tags
+## How It Works
 
-The following image tags are available from `ghcr.io/fabianwimberger/linznetz-energy-tracker`:
-
-| Tag | Description |
-|-----|-------------|
-| `main` | Latest development build from main branch |
-| `v1.2.3` | Specific release version |
-| `v1.2` | Latest patch release in the v1.2.x series |
-| `v1` | Latest minor release in the v1.x.x series |
-| `<short-sha>` | Specific commit SHA (e.g. `abc1234`) |
-
-### Updating
-
-```bash
-# Pull latest image
-docker compose pull
-docker compose up -d
-
-# Or with docker run
-docker pull ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
-docker restart linznetz-energy-tracker
+```mermaid
+flowchart LR
+    U[CSV upload] --> I[Import<br/>SHA-256 dedupe]
+    F[LinzNetz portal fetch<br/>optional] --> I
+    I --> DB[(SQLite<br/>readings + daily summary)]
+    DB --> A[Aggregation<br/>moving average, forecast]
+    A --> C[Charts]
 ```
+
+Each file is hashed on import, so uploading the same export twice is a no-op.
+Quarter-hourly readings are stored as-is and rolled up into a daily summary
+table that the daily, weekly, monthly, and yearly views read from.
 
 ## Configuration
 
-All configuration is via environment variables. Defaults are fine for a local
-deployment. For Docker Compose, copy `.env.example` to `.env` and edit the
-values you care about — Compose loads it automatically, and `.env` is
-gitignored so secrets stay local:
-
-```bash
-cp .env.example .env
-$EDITOR .env
-docker compose up -d
-```
+Environment variables; for Compose, copy `.env.example` to `.env`. The defaults work for a local deployment.
 
 | Variable                 | Default           | Purpose                                                       |
 | ------------------------ | ----------------- | ------------------------------------------------------------- |
@@ -158,67 +112,9 @@ yet are reported as skipped.
 Credentials live only in the container's environment; they are not
 persisted to disk or the database.
 
-## Production Deployment
+## Deployment
 
-The bundled `docker-compose.yml` is a minimal standalone setup. For
-production, put reverse-proxy config, TLS, and auth in a local
-`docker-compose.override.yml` (already gitignored), for example:
-
-```yaml
-services:
-  app:
-    ports: !reset []
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.energy.rule=Host(`energy.example.com`)
-      - traefik.http.routers.energy.tls.certresolver=letsencrypt
-    networks:
-      - reverse-proxy
-    environment:
-      CORS_ORIGINS: https://energy.example.com
-
-networks:
-  reverse-proxy:
-    external: true
-```
-
-The app has no built-in authentication — put it behind something (OIDC proxy,
-basic auth, Tailscale, etc.) before exposing it to the internet.
-
-## CSV Format
-
-The importer auto-detects two formats based on headers:
-
-**Quarter-hourly** (one row per 15-minute interval)
-
-```
-Datum von;Datum bis;Energiemenge in kWh
-01.01.2025 00:00;01.01.2025 00:15;0,123
-...
-```
-
-**Daily summary** (one row per day)
-
-```
-Datum;Energiemenge in kWh
-01.01.2025;12,345
-...
-```
-
-Decimal values use a comma as separator. The delimiter (`;` / `,` / tab) is
-auto-detected.
-
-### Export
-
-`GET /api/export` downloads your data in the same format shown above, so the
-file can be re-imported (e.g. into a fresh instance) without any conversion.
-
-| Parameter | Values | Description |
-|---|---|---|
-| `granularity` | `raw` (default), `daily` | Quarter-hourly readings or the daily summary |
-| `from`, `to` | `YYYY-MM-DD` | Optional inclusive date range |
-
-Download links are also available in the sidebar under **Data Export**.
+The app has no built-in authentication; put it behind a reverse proxy with auth before exposing it. [docs/deployment.md](docs/deployment.md) has a Traefik override example, and [docs/csv-format.md](docs/csv-format.md) describes the accepted CSV layouts and the export endpoint.
 
 ## Development
 
@@ -240,8 +136,6 @@ env DATA_DIR=./data STATIC_DIR=./static .venv/bin/python app.py
 MIT — see [LICENSE](LICENSE).
 
 ### Third-Party Licenses
-
-This software includes the following open-source components:
 
 | Component | License | Source |
 |-----------|---------|--------|
