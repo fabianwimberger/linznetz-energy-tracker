@@ -120,6 +120,21 @@ docker pull ghcr.io/fabianwimberger/linznetz-energy-tracker:latest
 docker restart linznetz-energy-tracker
 ```
 
+## How It Works
+
+```mermaid
+flowchart LR
+    U[CSV upload] --> I[Import<br/>SHA-256 dedupe]
+    F[LinzNetz portal fetch<br/>optional] --> I
+    I --> DB[(SQLite<br/>readings + daily summary)]
+    DB --> A[Aggregation<br/>moving average, forecast]
+    A --> C[Charts]
+```
+
+Each file is hashed on import, so uploading the same export twice is a no-op.
+Quarter-hourly readings are stored as-is and rolled up into a daily summary
+table that the daily, weekly, monthly, and yearly views read from.
+
 ## Configuration
 
 All configuration is via environment variables. Defaults are fine for a local
