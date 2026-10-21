@@ -1,120 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-kf="linznetz-energy-tracker" data-density="leitstand">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="Energy consumption analytics dashboard">
-    <title>Energy Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Energy consumption analytics for Austrian smart-meter exports">
+    <title>LinzNetz Energy</title>
+    <link rel="stylesheet" href="/static/kennfarbe.css">
     <link rel="stylesheet" href="/static/vendor/flatpickr.min.css">
-    <link rel="stylesheet" href="/static/vendor/dark.css">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 </head>
 <body>
+    <a class="skip-link" href="#main">Skip to the chart</a>
+
     <div class="app">
-        <!-- Header -->
-        <header class="header">
-            <h1 class="header-title">
-                <span class="header-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="8.2"/>
-                        <line x1="12" y1="4.6" x2="12" y2="6.2"/>
-                        <line x1="5.98" y1="8.3" x2="7.35" y2="9.1"/>
-                        <line x1="18.02" y1="8.3" x2="16.65" y2="9.1"/>
-                        <line x1="12" y1="12" x2="16.2" y2="7.6"/>
-                        <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>
-                    </svg>
-                </span>
-                <span>Energy Analytics</span>
-            </h1>
-            <div class="status-badge">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span class="status-text">Loading...</span>
-            </div>
+        <header class="head">
+            <a class="mark" href="/"><span class="mark__chip" aria-hidden="true"></span>LinzNetz Energy</a>
+            <h1>Consumption</h1>
         </header>
 
-        <!-- Main Content -->
-        <main class="main">
-            <!-- Chart Area -->
-            <div class="content">
-                <div class="card">
-                    <div class="chart-toolbar" aria-label="Chart zoom controls">
-                        <button type="button" id="range-week-button" class="chart-range-button" aria-label="Last week" title="Last week">1W</button>
-                        <button type="button" id="range-month-button" class="chart-range-button" aria-label="Last month" title="Last month">1M</button>
-                        <button type="button" id="range-year-button" class="chart-range-button" aria-label="Last year" title="Last year">1Y</button>
-                        <span class="chart-toolbar-sep" aria-hidden="true"></span>
-                        <button type="button" id="pan-left-button" class="chart-control-button" aria-label="Pan left" title="Pan left">&lt;</button>
-                        <button type="button" id="zoom-in-button" class="chart-control-button" aria-label="Zoom in" title="Zoom in">+</button>
-                        <button type="button" id="zoom-out-button" class="chart-control-button" aria-label="Zoom out" title="Zoom out">-</button>
-                        <button type="button" id="pan-right-button" class="chart-control-button" aria-label="Pan right" title="Pan right">&gt;</button>
-                        <button type="button" id="zoom-reset-button" class="chart-reset-button" aria-label="Reset zoom" title="Reset zoom">Reset</button>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="main-chart" role="img" aria-label="Energy consumption chart"></canvas>
-                        <div id="chart-empty-state" class="chart-empty-state hidden" role="status">
-                            <svg class="chart-empty-wave" viewBox="0 0 200 60" fill="none" preserveAspectRatio="none" aria-hidden="true">
-                                <path d="M0 40 C 20 10, 40 10, 60 30 S 100 55, 120 35 S 160 5, 200 25" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                            </svg>
-                            <p class="chart-empty-title">No data yet</p>
-                            <p class="chart-empty-subtitle">Drop a CSV export or fetch the latest reading to see your consumption trend.</p>
+        <main class="work" id="main">
+            <section class="chart-panel" aria-labelledby="chart-title">
+                <div class="chart-head">
+                    <h2 class="h4" id="chart-title">Consumption over time</h2>
+
+                    <div class="chart-toolbar">
+                        <div class="seg" role="group" aria-label="Zoom to range">
+                            <button type="button" id="range-week-button" aria-pressed="false" aria-label="Last week" title="Last week">Week</button>
+                            <button type="button" id="range-month-button" aria-pressed="false" aria-label="Last month" title="Last month">Month</button>
+                            <button type="button" id="range-year-button" aria-pressed="false" aria-label="Last year" title="Last year">Year</button>
                         </div>
+
+                        <div class="zoom-group" role="group" aria-label="Pan and zoom">
+                            <button type="button" id="pan-left-button" class="icon-btn" aria-label="Pan left" title="Pan left">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+                            </button>
+                            <button type="button" id="zoom-out-button" class="icon-btn" aria-label="Zoom out" title="Zoom out">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>
+                            </button>
+                            <button type="button" id="zoom-in-button" class="icon-btn" aria-label="Zoom in" title="Zoom in">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+                            </button>
+                            <button type="button" id="pan-right-button" class="icon-btn" aria-label="Pan right" title="Pan right">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>
+                            </button>
+                        </div>
+
+                        <button type="button" id="zoom-reset-button" class="btn btn--text btn--small" aria-label="Reset zoom" title="Reset zoom">Reset zoom</button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sidebar Controls -->
-            <aside class="sidebar">
-                <!-- View Controls -->
-                <section class="sidebar-section">
-                    <h3 class="section-title">View Options</h3>
+                <div class="chart-container">
+                    <canvas id="main-chart" role="img" aria-label="Energy consumption chart"></canvas>
+                    <div id="chart-empty-state" class="chart-empty-state hidden" role="status">
+                        <p class="h4">No data yet</p>
+                        <p class="muted small">Import a CSV export or fetch the latest reading to see the trend.</p>
+                    </div>
+                </div>
+            </section>
 
-                    <div class="control-group">
-                        <label class="control-label">Aggregation</label>
-                        <div class="radio-grid">
-                            <div class="radio-option">
-                                <input type="radio" id="agg-raw" name="aggregation" value="raw">
-                                <label for="agg-raw" class="radio-label">Raw</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="agg-daily" name="aggregation" value="daily" checked>
-                                <label for="agg-daily" class="radio-label">Daily</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="agg-weekly" name="aggregation" value="weekly">
-                                <label for="agg-weekly" class="radio-label">Weekly</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="agg-monthly" name="aggregation" value="monthly">
-                                <label for="agg-monthly" class="radio-label">Monthly</label>
-                            </div>
-                            <div class="radio-option">
-                                <input type="radio" id="agg-yearly" name="aggregation" value="yearly">
-                                <label for="agg-yearly" class="radio-label">Yearly</label>
-                            </div>
+            <aside class="side" aria-label="View and data">
+                <div class="side__group">
+                    <fieldset class="field">
+                        <legend class="label">Aggregation</legend>
+                        <div class="seg seg--stack">
+                            <input type="radio" id="agg-raw" name="aggregation" value="raw" class="seg__input">
+                            <label for="agg-raw" class="seg__label">Raw</label>
+                            <input type="radio" id="agg-daily" name="aggregation" value="daily" class="seg__input" checked>
+                            <label for="agg-daily" class="seg__label">Daily</label>
+                            <input type="radio" id="agg-weekly" name="aggregation" value="weekly" class="seg__input">
+                            <label for="agg-weekly" class="seg__label">Weekly</label>
+                            <input type="radio" id="agg-monthly" name="aggregation" value="monthly" class="seg__input">
+                            <label for="agg-monthly" class="seg__label">Monthly</label>
+                            <input type="radio" id="agg-yearly" name="aggregation" value="yearly" class="seg__input">
+                            <label for="agg-yearly" class="seg__label">Yearly</label>
                         </div>
+                    </fieldset>
+
+                    <div id="date-picker-container" class="field hidden">
+                        <label class="label" for="date-picker">Day</label>
+                        <input type="text" id="date-picker" class="input" placeholder="Choose a day" aria-label="Date selector">
                     </div>
+                </div>
 
-                    <div id="date-picker-container" class="control-group hidden">
-                        <label for="date-picker" class="control-label">Select Date</label>
-                        <input type="text" id="date-picker" class="date-input" placeholder="Choose date..." aria-label="Date selector">
-                    </div>
-                </section>
+                <div class="side__group">
+                    <h2 class="label">Import</h2>
 
-                <!-- Data Import -->
-                <section class="sidebar-section">
-                    <h3 class="section-title">Data Import</h3>
-
-                    <form id="upload-form" class="upload-zone">
+                    <form id="upload-form" class="upload">
                         <div class="drop-area" id="upload-area">
-                            <div class="upload-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M4 15.5v3a1.5 1.5 0 0 0 1.5 1.5h13a1.5 1.5 0 0 0 1.5-1.5v-3"/>
-                                <path d="M12 3.5v10.5"/>
-                                <path d="M8 10.5 12 14.5 16 10.5"/>
-                            </svg>
-                        </div>
-                            <div class="upload-title">Drop CSV files here</div>
-                            <div class="upload-subtitle">or click to browse • Auto-imports on selection</div>
+                            <span class="upload-title">Drop CSV files here</span>
+                            <span class="upload-subtitle">Or choose files; they import on selection</span>
                             <input
                                 type="file"
                                 id="file-input"
@@ -126,38 +101,55 @@
                             >
                         </div>
 
+                        <div id="upload-status" class="status-list" role="status" aria-live="polite"></div>
+
                         <button
                             type="button"
                             id="fetch-button"
-                            class="fetch-button"
+                            class="btn"
                             aria-label="Fetch latest data from LinzNetz portal"
                         >Fetch latest from LinzNetz</button>
-
-                        <div id="upload-status" class="status-list" role="status" aria-live="polite"></div>
                     </form>
-                </section>
+                </div>
 
-                <!-- Data Export -->
-                <section class="sidebar-section">
-                    <h3 class="section-title">Data Export</h3>
+                <div class="side__group">
+                    <h2 class="label">Export</h2>
 
-                    <div class="export-buttons">
+                    <div class="export">
                         <a
                             href="/api/export?granularity=raw"
-                            class="export-button"
+                            class="btn btn--quiet btn--small"
                             download
                             aria-label="Download quarter-hourly readings as CSV"
                         >Export 15-min CSV</a>
                         <a
                             href="/api/export?granularity=daily"
-                            class="export-button"
+                            class="btn btn--quiet btn--small"
                             download
                             aria-label="Download daily summary as CSV"
                         >Export daily CSV</a>
                     </div>
-                </section>
+                </div>
             </aside>
+
+            <section class="live" aria-label="Last reading">
+                <div class="live__cell">
+                    <span class="label">Last reading</span>
+                    <span class="live__value num" id="live-value">No data</span>
+                </div>
+                <div class="live__cell">
+                    <span class="label">Date</span>
+                    <span class="live__value num" id="live-date">No date</span>
+                </div>
+            </section>
         </main>
+
+        <footer class="statusbar">
+            <span>Days <b class="num" id="status-days">Loading</b></span>
+            <span id="status-readings-wrap" hidden>Readings <b class="num" id="status-readings">0</b></span>
+            <span>Range <b class="num" id="status-range">Loading</b></span>
+            <span class="grow"><span class="status status--info" id="status-linznetz">LinzNetz not fetched yet</span></span>
+        </footer>
     </div>
 
     <script src="/static/vendor/chart.min.js"></script>
