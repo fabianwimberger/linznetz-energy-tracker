@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.1] - 2026-10-24
+
+Gives the chart more room and evens out the panels around it.
+
+### Features
+
+- The chart legend is gone: the plot area takes the height it used, and last reading and date moved from their own strip into the status bar.
+- On phones the status bar leaves out range and date, which the time axis already shows.
+
+### Fixes
+
+- The side panel is as tall as the chart card. The drop area fills the leftover height, so `Fetch latest from LinzNetz` sits above the export divider.
+- Aggregation shows three options over two centred ones, with the same label spacing as the import and export groups.
+- The zoom buttons share the container style of the range switch.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.6.0...v1.6.1)
+
 ## [v1.6.0] - 2026-10-23
 
 Redesigns the web UI around the consumption chart.
