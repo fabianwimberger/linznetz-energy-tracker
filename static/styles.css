@@ -253,10 +253,10 @@ body {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
     "chart side"
     "live live";
-  align-content: start;
   gap: var(--s-4);
   padding: var(--s-4);
 }
@@ -307,10 +307,14 @@ body {
 
 .chart-container {
   position: relative;
-  height: clamp(17rem, 44vh, 30rem);
+  flex: 1;
+  min-height: 17rem;
 }
 
+/* Absolute so the canvas never feeds back into the row height it is sized from. */
 #main-chart {
+  position: absolute;
+  inset: 0;
   width: 100% !important;
   height: 100% !important;
 }
@@ -609,6 +613,7 @@ body {
 
   .work {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
     grid-template-areas:
       "chart"
       "side"
@@ -618,7 +623,7 @@ body {
   }
 
   .chart-container {
-    height: 16rem;
+    min-height: 16rem;
   }
 
   .live {
