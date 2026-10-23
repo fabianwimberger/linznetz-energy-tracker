@@ -9,11 +9,11 @@ description = "Web application for graphical analysis of energy consumption from
 requires-python = ">=3.13"
 
 dependencies = [
-    "fastapi==0.143.0",
+    "fastapi==0.161.1",
     "uvicorn[standard]==0.54.0",
-    "pydantic==2.14.0",
+    "pydantic==2.14.1",
     "aiosqlite==0.22.1",
-    "sqlalchemy[asyncio]==2.1.4",
+    "sqlalchemy[asyncio]==2.1.6",
     "python-dateutil==2.9.0.post0",
     "python-multipart==0.0.32",
     "aiofiles==25.1.0",
@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.17.0",
+    "ruff==0.17.2",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
