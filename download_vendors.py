@@ -16,8 +16,8 @@ CDN = "https://cdn.jsdelivr.net/npm"
 # dest (relative to VENDOR_DIR) -> (path on the CDN, sha256)
 VENDOR_FILES = {
     "chart.min.js": (
-        "chart.js@4.5.1/dist/chart.umd.min.js",
-        "48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a",
+        "chart.js@4.6.1/dist/chart.umd.min.js",
+        "87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2",
     ),
     "chartjs-plugin-zoom.min.js": (
         "chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js",
