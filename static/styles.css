@@ -152,9 +152,22 @@
 
 .seg--stack {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 2px;
   width: 100%;
+}
+
+/* Five options: three on top, two centred underneath. */
+.seg--stack .seg__label {
+  grid-column: span 2;
+}
+
+.seg--stack .seg__label:nth-of-type(4) {
+  grid-column: 2 / span 2;
+}
+
+.seg--stack .seg__label:nth-of-type(5) {
+  grid-column: 4 / span 2;
 }
 
 .seg__input {
@@ -253,10 +266,8 @@ body {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 20rem;
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "chart side"
-    "live live";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "chart side";
   gap: var(--s-4);
   padding: var(--s-4);
 }
@@ -297,7 +308,22 @@ body {
 .zoom-group {
   display: flex;
   align-items: center;
-  gap: var(--s-1);
+  gap: 0;
+  padding: 2px;
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--r-control) + 2px);
+}
+
+.zoom-group .icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.zoom-group .icon-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .chart-toolbar .btn--text {
@@ -339,7 +365,7 @@ body {
 
 .side {
   grid-area: side;
-  align-self: start;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
@@ -347,6 +373,20 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-panel);
+}
+
+.side__group:last-child {
+  margin-top: auto;
+}
+
+/* The import area takes the leftover height so the fetch button sits on the divider. */
+.side__group--grow {
+  grid-template-rows: auto minmax(0, 1fr);
+  flex: 1;
+}
+
+.side__group--grow .upload {
+  grid-template-rows: minmax(0, 1fr) auto auto;
 }
 
 .side__group {
@@ -367,6 +407,7 @@ body {
 .drop-area {
   position: relative;
   display: grid;
+  align-content: center;
   gap: var(--s-1);
   padding: var(--s-4);
   text-align: center;
@@ -437,30 +478,6 @@ body {
 .export {
   display: grid;
   gap: var(--s-2);
-}
-
-/* ---------- Live strip ---------- */
-
-.live {
-  grid-area: live;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--s-2) var(--s-8);
-  padding: var(--s-3) var(--s-4);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
-}
-
-.live__cell {
-  display: grid;
-  gap: 2px;
-}
-
-.live__value {
-  font-size: var(--fs-21);
-  font-weight: 620;
 }
 
 /* ---------- Status bar ---------- */
@@ -616,8 +633,7 @@ body {
     grid-template-rows: none;
     grid-template-areas:
       "chart"
-      "side"
-      "live";
+      "side";
     gap: var(--s-3);
     padding: var(--s-3);
   }
@@ -626,12 +642,14 @@ body {
     min-height: 16rem;
   }
 
-  .live {
-    gap: var(--s-2) var(--s-5);
-  }
-
   .statusbar {
     font-size: var(--fs-12);
+  }
+
+  /* Range and Date stay off the phone status bar; the axis shows both. */
+  .statusbar__range,
+  .statusbar__date {
+    display: none;
   }
 
   .statusbar > * {
