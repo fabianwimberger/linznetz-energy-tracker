@@ -320,19 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 plugins: {
                     legend: {
-                        position: 'top',
-                        align: 'start',
-                        labels: {
-                            color: colors.inkMuted,
-                            font: {
-                                family: chartFont,
-                                size: 12
-                            },
-                            boxWidth: 12,
-                            boxHeight: 12,
-                            padding: 16,
-                            usePointStyle: true
-                        }
+                        display: false
                     },
                     tooltip: {
                         backgroundColor: colors.surface,

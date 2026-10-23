@@ -61,8 +61,8 @@
 
             <aside class="side" aria-label="View and data">
                 <div class="side__group">
-                    <fieldset class="field">
-                        <legend class="label">Aggregation</legend>
+                    <div class="field" role="group" aria-labelledby="aggregation-label">
+                        <h2 class="label" id="aggregation-label">Aggregation</h2>
                         <div class="seg seg--stack">
                             <input type="radio" id="agg-raw" name="aggregation" value="raw" class="seg__input">
                             <label for="agg-raw" class="seg__label">Raw</label>
@@ -75,7 +75,7 @@
                             <input type="radio" id="agg-yearly" name="aggregation" value="yearly" class="seg__input">
                             <label for="agg-yearly" class="seg__label">Yearly</label>
                         </div>
-                    </fieldset>
+                    </div>
 
                     <div id="date-picker-container" class="field hidden">
                         <label class="label" for="date-picker">Day</label>
@@ -83,7 +83,7 @@
                     </div>
                 </div>
 
-                <div class="side__group">
+                <div class="side__group side__group--grow">
                     <h2 class="label">Import</h2>
 
                     <form id="upload-form" class="upload">
@@ -132,22 +132,14 @@
                 </div>
             </aside>
 
-            <section class="live" aria-label="Last reading">
-                <div class="live__cell">
-                    <span class="label">Last reading</span>
-                    <span class="live__value num" id="live-value">No data</span>
-                </div>
-                <div class="live__cell">
-                    <span class="label">Date</span>
-                    <span class="live__value num" id="live-date">No date</span>
-                </div>
-            </section>
         </main>
 
         <footer class="statusbar">
             <span>Days <b class="num" id="status-days">Loading</b></span>
             <span id="status-readings-wrap" hidden>Readings <b class="num" id="status-readings">0</b></span>
-            <span>Range <b class="num" id="status-range">Loading</b></span>
+            <span class="statusbar__range">Range <b class="num" id="status-range">Loading</b></span>
+            <span>Last reading <b class="num" id="live-value">No data</b></span>
+            <span class="statusbar__date">Date <b class="num" id="live-date">No date</b></span>
             <span class="grow"><span class="status status--info" id="status-linznetz">LinzNetz not fetched yet</span></span>
             <span class="statusbar__credit">Made with passion by <a href="https://fabianwimberger.at/" target="_blank" rel="noopener">Fabian Wimberger</a></span>
         </footer>
