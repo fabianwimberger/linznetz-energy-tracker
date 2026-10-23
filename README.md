@@ -142,5 +142,4 @@ MIT — see [LICENSE](LICENSE).
 | Chart.js | [MIT](https://github.com/chartjs/Chart.js/blob/master/LICENSE) | https://github.com/chartjs/Chart.js |
 | chartjs-plugin-zoom | [MIT](https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE) | https://github.com/chartjs/chartjs-plugin-zoom |
 | Flatpickr | [MIT](https://github.com/flatpickr/flatpickr/blob/master/LICENSE.md) | https://github.com/flatpickr/flatpickr |
-| Space Grotesk | [OFL-1.1](https://github.com/floriankarsten/space-grotesk/blob/master/OFL.txt) | https://github.com/floriankarsten/space-grotesk |
-| IBM Plex Mono | [OFL-1.1](https://github.com/IBM/plex/blob/master/LICENSE.txt) | https://github.com/IBM/plex |
+| FW Grotesk (Mona Sans) | [OFL-1.1](https://github.com/github/mona-sans/blob/main/LICENSE.md) | https://github.com/github/mona-sans |

@@ -24,29 +24,41 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomInButton: document.getElementById('zoom-in-button'),
         zoomOutButton: document.getElementById('zoom-out-button'),
         zoomResetButton: document.getElementById('zoom-reset-button'),
-        statusBadge: document.querySelector('.status-badge .status-text')
+        liveValue: document.getElementById('live-value'),
+        liveDate: document.getElementById('live-date'),
+        statusDays: document.getElementById('status-days'),
+        statusReadings: document.getElementById('status-readings'),
+        statusReadingsWrap: document.getElementById('status-readings-wrap'),
+        statusRange: document.getElementById('status-range'),
+        statusLinznetz: document.getElementById('status-linznetz')
     };
 
-    // Chart palette — read from CSS custom properties so the canvas never
-    // drifts from the design tokens defined in styles.css.
+    // Chart palette — read from CSS custom properties so the canvas follows the
+    // Kennfarbe and the neutral ramp in both themes.
     function cssVar(name) {
         return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
 
-    function hexToRgba(hex, alpha) {
-        const v = parseInt(hex.replace('#', ''), 16);
-        return `rgba(${(v >> 16) & 255}, ${(v >> 8) & 255}, ${v & 255}, ${alpha})`;
+    function withAlpha(color, alpha) {
+        const match = /^#([0-9a-f]{6})$/i.exec(color);
+        if (!match) return color;
+        const value = parseInt(match[1], 16);
+        return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
     }
 
     function getChartColors() {
         return {
-            copper: cssVar('--copper'),
-            current: cssVar('--current'),
-            gold: cssVar('--gold'),
-            paperDim: cssVar('--paper-dim'),
+            accent: cssVar('--accent'),
             ink: cssVar('--ink'),
+            inkMuted: cssVar('--ink-muted'),
+            inkFaint: cssVar('--ink-faint'),
+            line: cssVar('--line'),
+            lineStrong: cssVar('--line-strong'),
+            surface: cssVar('--surface')
         };
     }
+
+    const chartFont = "'FW Grotesk', ui-sans-serif, system-ui, sans-serif";
 
     // API Helpers
     async function fetchData(url) {
@@ -55,36 +67,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return response.json();
     }
 
-    // Update Entry Count Badge
-    async function updateEntryCount() {
+    // Status bar: imported days, quarter-hour readings, and the date range.
+    // Daily-only imports have no quarter-hour rows, so the reading count only
+    // appears once there is something to count.
+    function renderCounts(days, readings) {
+        elements.statusDays.textContent = days.toLocaleString();
+        elements.statusReadings.textContent = readings.toLocaleString();
+        elements.statusReadingsWrap.hidden = readings === 0;
+    }
+
+    async function updateStats() {
         try {
             const stats = await fetchData('/api/stats');
-            if (stats && typeof stats.total_readings === 'number') {
-                const count = stats.total_readings.toLocaleString();
-                elements.statusBadge.textContent = `${count} entries`;
+            renderCounts(
+                typeof stats.total_days === 'number' ? stats.total_days : 0,
+                typeof stats.total_readings === 'number' ? stats.total_readings : 0
+            );
+            if (stats.first_date && stats.last_date) {
+                elements.statusRange.textContent = `${stats.first_date} – ${stats.last_date}`;
+            } else {
+                elements.statusRange.textContent = 'No data';
             }
         } catch (error) {
             console.error('Error fetching stats:', error);
+            elements.statusDays.textContent = 'Unavailable';
+            elements.statusReadingsWrap.hidden = true;
+            elements.statusRange.textContent = 'Unavailable';
         }
+    }
+
+    function setLinznetzStatus(tone, message) {
+        elements.statusLinznetz.className = `status status--${tone}`;
+        elements.statusLinznetz.textContent = message;
     }
 
     // Status Messages
     function showStatus(message, type = 'info') {
-        const statusDiv = document.createElement('div');
-        statusDiv.className = `status-message ${type}`;
+        const tone = type === 'success' ? 'ok' : type === 'error' ? 'fail' : 'info';
+        const line = document.createElement('p');
+        line.className = `status status--${tone}`;
+        line.textContent = message;
 
-        const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ⓘ';
-        statusDiv.innerHTML = `
-            <span class="status-icon">${icon}</span>
-            <span>${message}</span>
-        `;
-
-        elements.uploadStatus.appendChild(statusDiv);
+        elements.uploadStatus.appendChild(line);
 
         // Auto-remove after 5 seconds
         setTimeout(() => {
-            statusDiv.style.opacity = '0';
-            setTimeout(() => statusDiv.remove(), 300);
+            line.style.opacity = '0';
+            setTimeout(() => line.remove(), 300);
         }, 5000);
     }
 
@@ -104,10 +133,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return (RANGE_POINTS[range] || {})[state.currentAggregation] ?? null;
     }
 
+    const rangeButtons = () => [
+        ['week', elements.rangeWeekButton],
+        ['month', elements.rangeMonthButton],
+        ['year', elements.rangeYearButton]
+    ];
+
+    function setPickedRange(range) {
+        rangeButtons().forEach(([name, button]) => {
+            if (button) button.setAttribute('aria-pressed', String(name === range));
+        });
+    }
+
     function updateRangeButtons(forceDisable = false) {
         const noData = forceDisable || !state.chart || state.chart.data.labels.length === 0;
-        [['week', elements.rangeWeekButton], ['month', elements.rangeMonthButton], ['year', elements.rangeYearButton]].forEach(([range, btn]) => {
-            if (btn) btn.disabled = noData || getLastNPoints(range) === null;
+        rangeButtons().forEach(([range, button]) => {
+            if (button) button.disabled = noData || getLastNPoints(range) === null;
         });
     }
 
@@ -131,21 +172,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const count = state.chart.data.labels.length;
         if (count === 0) return;
         state.chart.zoomScale('x', { min: Math.max(0, count - n), max: count - 1 }, 'none');
+        setPickedRange(range);
     }
 
     function handleZoom(scale) {
         if (!state.chart) return;
         state.chart.zoom(scale);
+        setPickedRange(null);
     }
 
     function panChart(delta) {
         if (!state.chart) return;
         state.chart.pan({x: delta}, undefined, 'none');
+        setPickedRange(null);
     }
 
     function resetZoom() {
         if (!state.chart) return;
         state.chart.resetZoom();
+        setPickedRange(null);
+    }
+
+    // Live strip: the last daily reading and its date.
+    function updateLiveStrip(data) {
+        if (!data.labels.length || !data.data.length) {
+            elements.liveValue.textContent = 'No data';
+            elements.liveDate.textContent = 'No date';
+            return;
+        }
+        const last = data.labels.length - 1;
+        elements.liveValue.textContent = `${Number(data.data[last]).toFixed(2)} kWh`;
+        elements.liveDate.textContent = data.labels[last];
     }
 
     // Chart Rendering
@@ -157,6 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const hasData = data.labels.length > 0 && data.data.length > 0;
         elements.chartEmptyState.classList.toggle('hidden', hasData);
+
+        if (state.currentAggregation === 'daily') {
+            updateLiveStrip(hasData ? data : { labels: [], data: [] });
+        }
 
         if (!hasData) {
             updateZoomControls(true);
@@ -175,8 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
             label: unit,
             type: isLineChart ? 'line' : 'bar',
             data: data.data,
-            backgroundColor: hexToRgba(colors.copper, 0.6),
-            borderColor: colors.copper,
+            backgroundColor: isLineChart ? withAlpha(colors.accent, 0.15) : withAlpha(colors.accent, 0.75),
+            borderColor: colors.accent,
             borderWidth: 2,
             ...(isLineChart && {
                 pointRadius: 0,
@@ -193,14 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: 'Forecast',
                 type: 'line',
                 data: data.forecast,
-                backgroundColor: hexToRgba(colors.gold, 0.2),
-                borderColor: colors.gold,
+                backgroundColor: withAlpha(colors.inkFaint, 0.2),
+                borderColor: colors.inkFaint,
                 borderWidth: 2,
-                borderDash: [8, 4],
+                borderDash: [6, 4],
                 pointRadius: 3,
                 pointHoverRadius: 5,
-                pointBackgroundColor: colors.gold,
-                pointBorderColor: colors.gold,
+                pointBackgroundColor: colors.inkFaint,
+                pointBorderColor: colors.inkFaint,
                 tension: 0.4,
                 fill: true,
                 order: 2
@@ -220,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: averageNames[state.currentAggregation],
                 type: 'line',
                 data: data.moving_average,
-                borderColor: colors.current,
+                borderColor: colors.inkMuted,
                 borderWidth: 2,
                 pointRadius: 0,
                 pointHoverRadius: 4,
@@ -236,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: 'Average Pattern',
                 type: 'line',
                 data: data.daily_average_pattern,
-                borderColor: colors.current,
+                borderColor: colors.inkMuted,
                 borderWidth: 2,
                 pointRadius: 0,
                 pointHoverRadius: 4,
@@ -260,29 +321,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 plugins: {
                     legend: {
                         position: 'top',
+                        align: 'start',
                         labels: {
-                            color: colors.paperDim,
+                            color: colors.inkMuted,
                             font: {
-                                family: "'IBM Plex Mono', ui-monospace, monospace",
+                                family: chartFont,
                                 size: 12
                             },
+                            boxWidth: 12,
+                            boxHeight: 12,
                             padding: 16,
                             usePointStyle: true
                         }
                     },
                     tooltip: {
-                        backgroundColor: hexToRgba(colors.ink, 0.92),
-                        borderColor: colors.copper,
+                        backgroundColor: colors.surface,
+                        borderColor: colors.lineStrong,
                         borderWidth: 1,
-                        titleColor: '#f4ecdf',
+                        titleColor: colors.ink,
                         titleFont: {
-                            family: "'IBM Plex Mono', ui-monospace, monospace",
+                            family: chartFont,
                             size: 13,
                             weight: 600
                         },
-                        bodyColor: '#f4ecdf',
+                        bodyColor: colors.inkMuted,
                         bodyFont: {
-                            family: "'IBM Plex Mono', ui-monospace, monospace",
+                            family: chartFont,
                             size: 13
                         },
                         padding: 12,
@@ -308,8 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             },
                             drag: {
                                 enabled: true,
-                                backgroundColor: hexToRgba(colors.copper, 0.2),
-                                borderColor: colors.copper,
+                                backgroundColor: withAlpha(colors.accent, 0.2),
+                                borderColor: colors.accent,
                                 borderWidth: 1
                             },
                             mode: 'x'
@@ -326,9 +390,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     x: {
                         ticks: {
-                            color: colors.paperDim,
+                            color: colors.inkMuted,
                             font: {
-                                family: "'IBM Plex Mono', ui-monospace, monospace",
+                                family: chartFont,
                                 size: 11
                             },
                             maxRotation: data.labels.length > 50 ? 45 : 0,
@@ -336,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             autoSkipPadding: 10
                         },
                         grid: {
-                            color: cssVar('--line'),
+                            color: colors.line,
                             drawBorder: false
                         }
                     },
@@ -344,15 +408,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         title: {
                             display: true,
                             text: unit,
-                            color: colors.paperDim,
+                            color: colors.inkMuted,
                             font: {
                                 size: 12
                             }
                         },
                         ticks: {
-                            color: colors.paperDim,
+                            color: colors.inkMuted,
                             font: {
-                                family: "'IBM Plex Mono', ui-monospace, monospace",
+                                family: chartFont,
                                 size: 11
                             },
                             callback: function(value) {
@@ -360,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         },
                         grid: {
-                            color: cssVar('--line'),
+                            color: colors.line,
                             drawBorder: false
                         }
                     }
@@ -368,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         updateZoomControls(false);
+        setPickedRange(null);
     }
 
     // Update Chart Data
@@ -433,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             await updateChart();
-            await updateEntryCount();
+            await updateStats();
         } catch (error) {
             showStatus('Upload failed. Please try again.', 'error');
         } finally {
@@ -457,32 +522,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function summarizeFetch(results) {
+        const imported = results.filter(result => result.status === 'success').length;
+        const failed = results.some(result => result.status === 'error');
+        if (failed) {
+            setLinznetzStatus('fail', 'LinzNetz fetch failed');
+        } else if (imported > 0) {
+            const days = imported === 1 ? '1 day' : `${imported} days`;
+            setLinznetzStatus('ok', `LinzNetz fetched ${days}`);
+        } else {
+            setLinznetzStatus('ok', 'LinzNetz up to date');
+        }
+    }
+
     async function handleFetchLatest() {
         clearStatus();
         elements.fetchButton.disabled = true;
         const originalLabel = elements.fetchButton.textContent;
         elements.fetchButton.textContent = 'Fetching…';
+        setLinznetzStatus('info', 'Fetching from LinzNetz');
 
         try {
             const response = await fetch('/api/fetch', { method: 'POST' });
             if (response.status === 503) {
                 showStatus('LinzNetz credentials not configured on the server.', 'error');
+                setLinznetzStatus('warn', 'LinzNetz not configured');
                 return;
             }
             if (response.status === 429) {
                 showStatus('Too many requests — please try again later.', 'error');
+                setLinznetzStatus('warn', 'LinzNetz rate limited');
                 return;
             }
             if (!response.ok) {
                 showStatus(`Fetch failed (HTTP ${response.status}).`, 'error');
+                setLinznetzStatus('fail', `LinzNetz fetch failed (HTTP ${response.status})`);
                 return;
             }
             const results = await response.json();
             results.forEach(renderImportResult);
+            summarizeFetch(results);
             await updateChart();
-            await updateEntryCount();
+            await updateStats();
         } catch (error) {
             showStatus('Fetch failed. Please try again.', 'error');
+            setLinznetzStatus('fail', 'LinzNetz fetch failed');
         } finally {
             elements.fetchButton.disabled = false;
             elements.fetchButton.textContent = originalLabel;
@@ -509,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const uploadTitle = elements.uploadArea.querySelector('.upload-title');
 
         if (files.length > 0) {
-            uploadTitle.textContent = `${files.length} file(s) selected`;
+            uploadTitle.textContent = files.length === 1 ? '1 file selected' : `${files.length} files selected`;
             handleUpload(new Event('submit'));
         } else {
             uploadTitle.textContent = 'Drop CSV files here';
@@ -561,7 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
             state.flatpickrInstance = flatpickr(elements.datePickerInput, {
                 dateFormat: "Y-m-d",
                 defaultDate: defaultDate,
-                theme: "dark",
                 maxDate: "today",
                 onChange: () => {
                     if (state.currentAggregation === 'raw') updateChart();
@@ -606,10 +689,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (state.chart) state.chart.resize();
             });
 
+            // Series colours come from the tokens, so a theme switch needs a redraw.
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                updateChart();
+            });
+
             setupDragAndDrop();
 
             await updateChart();
-            await updateEntryCount();
+            await updateStats();
         } catch (error) {
             console.error('Initialization error:', error);
             showStatus('Initialization error. Please refresh the page.', 'error');
