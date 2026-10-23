@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.0] - 2026-10-23
+
+Redesigns the web UI around the consumption chart.
+
+### Features
+
+- New web UI: the chart fills the main area with the range control above it, aggregation, import and export sit in a side panel, and a status bar shows days, readings and the LinzNetz fetch status. It follows the system light or dark theme and works on phones.
+
+### Dependencies
+
+- FastAPI 0.142.2 → 0.161.1
+- Pydantic 2.13.5 → 2.14.1
+- SQLAlchemy 2.1.2 → 2.1.6
+- Chart.js 4.5.1 → 4.6.1
+- Ruff 0.16.10 → 0.17.2
+- Remove the unused python-dateutil dependency.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.5.5...v1.6.0)
+
+## [v1.5.5] - 2026-10-03
+
+Consolidates Python dependencies and gives local development, CI, and Docker a consistent installation.
+
+### Fixes
+
+- Remove duplicate runtime and development dependency lists.
+- Use virtual environments for local commands, CI, and the container runtime.
+
+### Features
+
+- Add a multi-stage container build that installs the application package and preserves offline frontend assets.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.5.4...v1.5.5)
+
 ## [v1.5.4] - 2026-10-02
 
 Updates the API server, asynchronous database dependencies, and development tools.
