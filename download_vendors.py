@@ -31,18 +31,6 @@ VENDOR_FILES = {
         "flatpickr@4.6.13/dist/flatpickr.min.css",
         "1b34a42552c96f10e4dfaaa4a367276b03868aacff63c1ac42ffe331352bc754",
     ),
-    "dark.css": (
-        "flatpickr@4.6.13/dist/themes/dark.css",
-        "47798b76a38ac3a62b1ae658c566e0ed3b4cbcb115173ae620f0db8952f93612",
-    ),
-    "fonts/space-grotesk-700.woff2": (
-        "@fontsource/space-grotesk@5.3.0/files/space-grotesk-latin-700-normal.woff2",
-        "35f8aec56cfd5cbfdb03cc68733a54a0b05bb3617ffcd5fd332badc0b045ca55",
-    ),
-    "fonts/ibm-plex-mono-500.woff2": (
-        "@fontsource/ibm-plex-mono@5.3.0/files/ibm-plex-mono-latin-500-normal.woff2",
-        "01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22",
-    ),
 }
 
 VENDOR_DIR = Path(__file__).parent / "static" / "vendor"
