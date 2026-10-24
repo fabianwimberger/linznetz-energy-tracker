@@ -119,8 +119,7 @@ The app has no built-in authentication; put it behind a reverse proxy with auth 
 ## Development
 
 ```bash
-python -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
+uv sync --extra dev
 make setup        # Download vendor libraries
 make test         # Run the test suite
 make lint         # Run linters
