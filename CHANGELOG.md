@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.0] - 2026-10-25
+
+The status bar remembers how the last LinzNetz fetch went.
+
+### Features
+
+- After a reload or a restart the status bar shows the last fetch with its time, for example `LinzNetz fetched 3 days, 25 Oct, 15:05`, `LinzNetz up to date, 25 Oct, 15:05` or `LinzNetz fetch failed, 25 Oct, 15:05`. Until the first fetch it reads `LinzNetz idle`.
+- `/api/stats` reports `last_fetch_at`, `last_fetch_outcome` and `last_fetch_days`.
+
+### Documentation & Links
+
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.6.2...v1.7.0)
+
 ## [v1.6.2] - 2026-10-25
 
 Tidies the chart toolbar on phones and corrects the status text.

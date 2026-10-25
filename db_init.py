@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def _is_dst_transition_day(d: date) -> bool:
@@ -297,3 +297,15 @@ async def apply_migrations(conn, current_version):
                     )
 
         await conn.execute(text("ANALYZE"))
+
+    if current_version < 6:
+        await conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS fetch_status (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                fetched_at TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                days_imported INTEGER NOT NULL
+            )
+        """)
+        )

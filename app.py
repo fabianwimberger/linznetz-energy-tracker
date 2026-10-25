@@ -243,6 +243,31 @@ async def upload_and_import_csv(request: Request, files: list[UploadFile] = File
     return results
 
 
+async def _record_fetch(results: list[ImportResult]) -> None:
+    """Remember how the last LinzNetz fetch went, so the status bar survives a reload."""
+    imported = sum(1 for r in results if r.status == "success")
+    failed = any(r.status == "error" for r in results)
+    outcome = "failed" if failed else ("fetched" if imported else "up_to_date")
+    async with db_context["engine"].begin() as conn:
+        await conn.execute(
+            text(
+                """
+                INSERT INTO fetch_status (id, fetched_at, outcome, days_imported)
+                VALUES (1, :at, :outcome, :days)
+                ON CONFLICT(id) DO UPDATE SET
+                    fetched_at = excluded.fetched_at,
+                    outcome = excluded.outcome,
+                    days_imported = excluded.days_imported
+                """
+            ),
+            {
+                "at": datetime.now(UTC).isoformat(timespec="seconds"),
+                "outcome": outcome,
+                "days": imported,
+            },
+        )
+
+
 @api_router.post("/fetch", response_model=list[ImportResult])
 async def fetch_from_linznetz(request: Request):
     """Pull missing quarter-hour data for the last LINZNETZ_LOOKBACK_DAYS days."""
@@ -284,13 +309,15 @@ async def fetch_from_linznetz(request: Request):
     missing = [d for d in candidates if d.isoformat() not in complete]
 
     if not missing:
-        return [
+        skipped = [
             ImportResult(
                 status="skipped",
                 filename=f"last {LINZNETZ_LOOKBACK_DAYS} days",
                 error="All days already imported.",
             )
         ]
+        await _record_fetch(skipped)
+        return skipped
 
     results: list[ImportResult] = []
     async with LinzNetzFetcher(LINZNETZ_USERNAME, LINZNETZ_PASSWORD) as fetcher:
@@ -349,6 +376,7 @@ async def fetch_from_linznetz(request: Request):
                 if file_path.exists():
                     file_path.unlink(missing_ok=True)
 
+    await _record_fetch(results)
     return results
 
 
@@ -691,7 +719,10 @@ async def get_database_stats():
             (SELECT COUNT(*) FROM daily_energy_summary) as total_days,
             (SELECT MIN(date) FROM daily_energy_summary) as first_date,
             (SELECT MAX(date) FROM daily_energy_summary) as last_date,
-            (SELECT COUNT(*) FROM import_log WHERE processing_status = 'completed') as successful_imports
+            (SELECT COUNT(*) FROM import_log WHERE processing_status = 'completed') as successful_imports,
+            (SELECT fetched_at FROM fetch_status WHERE id = 1) as last_fetch_at,
+            (SELECT outcome FROM fetch_status WHERE id = 1) as last_fetch_outcome,
+            (SELECT days_imported FROM fetch_status WHERE id = 1) as last_fetch_days
     """
     rows = await _fetch_data(db_context["engine"], query)
     return rows[0] if rows else {}
