@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from db_init import SCHEMA_VERSION, apply_migrations, init_database
@@ -156,5 +157,29 @@ class TestApplyMigrations:
             assert "date_local" in cols
             assert "time_slot_local" in cols
 
+        await engine.dispose()
+        Path(db_file.name).unlink(missing_ok=True)
+
+
+class TestFetchStatusTable:
+    @pytest.mark.asyncio
+    async def test_schema_has_single_row_fetch_status(self):
+        db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_file.close()
+        engine = create_async_engine(f"sqlite+aiosqlite:///{db_file.name}", pool_pre_ping=True)
+        await init_database(engine)
+
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO fetch_status VALUES (1, '2026-10-25T12:00:00+00:00', 'fetched', 2)"
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await conn.execute(
+                    text(
+                        "INSERT INTO fetch_status VALUES (2, '2026-10-25T12:00:00+00:00', 'fetched', 2)"
+                    )
+                )
         await engine.dispose()
         Path(db_file.name).unlink(missing_ok=True)

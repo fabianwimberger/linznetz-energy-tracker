@@ -76,9 +76,28 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.statusReadingsWrap.hidden = readings === 0;
     }
 
-    async function updateStats() {
+    // After a reload the status bar would otherwise claim nothing was fetched.
+    // Only the first load applies the stored result: later refreshes must not
+    // overwrite what this session's own fetch just reported.
+    function restoreFetchStatus(stats) {
+        if (!stats.last_fetch_at) return;
+        const when = new Date(stats.last_fetch_at).toLocaleString(undefined, {
+            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        });
+        const days = stats.last_fetch_days === 1 ? '1 day' : `${stats.last_fetch_days} days`;
+        if (stats.last_fetch_outcome === 'failed') {
+            setLinznetzStatus('fail', `LinzNetz fetch failed, ${when}`);
+        } else if (stats.last_fetch_outcome === 'fetched') {
+            setLinznetzStatus('ok', `LinzNetz fetched ${days}, ${when}`);
+        } else {
+            setLinznetzStatus('ok', `LinzNetz up to date, ${when}`);
+        }
+    }
+
+    async function updateStats(restoreFetch = false) {
         try {
             const stats = await fetchData('/api/stats');
+            if (restoreFetch) restoreFetchStatus(stats);
             renderCounts(
                 typeof stats.total_days === 'number' ? stats.total_days : 0,
                 typeof stats.total_readings === 'number' ? stats.total_readings : 0
@@ -685,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setupDragAndDrop();
 
             await updateChart();
-            await updateStats();
+            await updateStats(true);
         } catch (error) {
             console.error('Initialization error:', error);
             showStatus('Initialization error. Please refresh the page.', 'error');

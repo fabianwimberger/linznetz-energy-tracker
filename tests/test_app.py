@@ -42,6 +42,8 @@ class TestStatsEndpoint:
         assert data["total_readings"] == 0
         assert data["total_days"] == 0
         assert data["successful_imports"] == 0
+        assert data["last_fetch_at"] is None
+        assert data["last_fetch_outcome"] is None
 
 
 class TestChartDataEndpoint:
@@ -328,6 +330,44 @@ class TestFetchEndpoint:
         errors = [r for r in data if r["status"] == "error"]
         assert len(errors) == 1
         assert errors[0]["error"] == "boom"
+
+
+class TestLastFetchStatus:
+    def _fetch(self, client, monkeypatch, plan):
+        monkeypatch.setattr(app_module, "LINZNETZ_USERNAME", "u")
+        monkeypatch.setattr(app_module, "LINZNETZ_PASSWORD", "p")
+        monkeypatch.setattr(app_module, "LinzNetzFetcher", FakeFetcher(plan))
+        assert client.post("/api/fetch").status_code == 200
+        return client.get("/api/stats").json()
+
+    def test_import_day_is_remembered(self, client, monkeypatch):
+        day = date.today() - timedelta(days=1)
+        stats = self._fetch(client, monkeypatch, {day: _quarter_hour_csv_for(day)})
+        assert stats["last_fetch_outcome"] == "fetched"
+        assert stats["last_fetch_days"] == 1
+        assert stats["last_fetch_at"]
+
+    def test_nothing_new_is_up_to_date(self, client, monkeypatch):
+        stats = self._fetch(client, monkeypatch, {})
+        assert stats["last_fetch_outcome"] == "up_to_date"
+        assert stats["last_fetch_days"] == 0
+
+    def test_error_is_remembered_as_failed(self, client, monkeypatch):
+        day = date.today() - timedelta(days=1)
+        stats = self._fetch(client, monkeypatch, {day: FetchError("boom")})
+        assert stats["last_fetch_outcome"] == "failed"
+
+    def test_latest_fetch_replaces_the_previous_one(self, client, monkeypatch):
+        day = date.today() - timedelta(days=1)
+        self._fetch(client, monkeypatch, {day: FetchError("boom")})
+        stats = self._fetch(client, monkeypatch, {day: _quarter_hour_csv_for(day)})
+        assert stats["last_fetch_outcome"] == "fetched"
+
+    def test_rejected_fetch_leaves_the_status_alone(self, client, monkeypatch):
+        monkeypatch.setattr(app_module, "LINZNETZ_USERNAME", None)
+        monkeypatch.setattr(app_module, "LINZNETZ_PASSWORD", None)
+        assert client.post("/api/fetch").status_code == 503
+        assert client.get("/api/stats").json()["last_fetch_at"] is None
 
 
 class TestExportEndpoint:
