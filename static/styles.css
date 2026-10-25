@@ -642,6 +642,20 @@ body {
     min-height: 16rem;
   }
 
+  /* The range buttons take their own row so the zoom controls and Reset zoom
+     share the next one instead of Reset zoom dropping onto a row alone. */
+  .chart-toolbar {
+    width: 100%;
+  }
+
+  .chart-toolbar .seg {
+    flex: 1 1 100%;
+  }
+
+  .chart-toolbar .seg button {
+    flex: 1;
+  }
+
   .statusbar {
     font-size: var(--fs-12);
   }
