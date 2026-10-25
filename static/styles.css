@@ -257,11 +257,6 @@ body {
   font-size: var(--fs-16);
 }
 
-.head h1 {
-  font-size: var(--fs-18);
-  font-weight: 620;
-}
-
 .work {
   flex: 1;
   display: grid;
