@@ -18,10 +18,9 @@ accurate, but spotting trends or comparing seasons in a spreadsheet is tedious.
 LinzNetz Energy Tracker imports the CSVs and gives you interactive charts with
 moving averages and simple forecasts.
 
-<p align="center">
-  <img src="assets/screenshot.png" width="100%" alt="LinzNetz Energy Tracker Dashboard">
-  <br><em>Daily view with 90-day moving average and seasonal trends</em>
-</p>
+| Desktop | Mobile |
+|---------|--------|
+| <img src="assets/screenshot-desktop.png" alt="Desktop dashboard with the daily view, a 90-day moving average and seasonal trends" width="720"> | <img src="assets/screenshot-mobile.png" alt="Mobile dashboard" width="260"> |
 
 For live readings from a Smart Meter Adapter instead of CSV files, see
 [SMA Energy Tracker](https://github.com/fabianwimberger/sma-energy-tracker).

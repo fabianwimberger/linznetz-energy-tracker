@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.1] - 2026-10-25
+
+Cleans up the header and refreshes the README screenshots.
+
+### Fixes
+
+- The page heading `Consumption` next to the brand name is hidden visually, since the chart card below carries the same title. Screen readers still get it.
+
+### Documentation & Links
+
+- The README shows the dashboard on desktop and on a phone.
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.7.0...v1.7.1)
+
 ## [v1.7.0] - 2026-10-25
 
 The status bar remembers how the last LinzNetz fetch went.
