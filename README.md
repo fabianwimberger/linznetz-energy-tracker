@@ -108,6 +108,15 @@ imports them. The portal often pushes partial days; those get re-fetched
 on subsequent presses until complete. Days the portal hasn't published
 yet are reported as skipped.
 
+The button implies the portal sanctions automated access; it does not.
+
+- Use it only with your own account.
+- Automated access may violate the portal's terms of use — read them before
+  enabling it.
+- Each press asks only for the days that are missing or incomplete, one CSV per
+  day, and never re-fetches a complete day. The API accepts at most 50 requests
+  per hour from one address, shared with CSV uploads.
+
 Credentials live only in the container's environment; they are not
 persisted to disk or the database.
 
