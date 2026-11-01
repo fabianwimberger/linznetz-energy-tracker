@@ -58,10 +58,13 @@ def _expected_slots(d: date) -> int:
     - Normal day: 96 slots
     - Spring DST (23h): 92 slots
     - Autumn DST (25h): 100 slots
+
+    The difference is taken in UTC: both datetimes carry the same zone, so
+    subtracting them directly is wall-clock arithmetic and always gives 24h.
     """
     start = datetime(d.year, d.month, d.day, tzinfo=VIENNA_TZ)
     end = start + timedelta(days=1)
-    return int((end - start).total_seconds() / 900)
+    return int((end.astimezone(UTC) - start.astimezone(UTC)).total_seconds() / 900)
 
 
 def _format_kwh(value: float) -> str:
