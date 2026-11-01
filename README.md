@@ -103,19 +103,15 @@ Environment variables; for Compose, copy `.env.example` to `.env`. The defaults 
 If `LINZNETZ_USERNAME` and `LINZNETZ_PASSWORD` are set, the UI shows a
 **Fetch latest from LinzNetz** button. It logs into the portal and
 downloads quarter-hour CSVs for any day in the last `LINZNETZ_LOOKBACK_DAYS`
-that doesn't yet have all 96 quarter-hour slots in the database, then
+that doesn't yet have all its quarter-hour slots in the database, then
 imports them. The portal often pushes partial days; those get re-fetched
 on subsequent presses until complete. Days the portal hasn't published
 yet are reported as skipped.
 
-The button implies the portal sanctions automated access; it does not.
-
-- Use it only with your own account.
-- Automated access may violate the portal's terms of use — read them before
-  enabling it.
-- Each press asks only for the days that are missing or incomplete, one CSV per
-  day, and never re-fetches a complete day. The API accepts at most 50 requests
-  per hour from one address, shared with CSV uploads.
+Use the button only with your own account: automated access may violate the
+portal's terms of use, so check them before enabling it. A press makes one
+request per missing day, and the API accepts at most 50 requests per hour from
+one address, shared with CSV uploads.
 
 Credentials live only in the container's environment; they are not
 persisted to disk or the database.
