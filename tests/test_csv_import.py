@@ -1,6 +1,6 @@
 """Tests for CSV import functionality."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -160,6 +160,30 @@ class TestProcessCSVFile:
         assert result["status"] == "success"
         assert result["filename"] == "quarter_hourly.csv"
         assert result["records_processed"] == 2
+
+    @pytest.mark.asyncio
+    async def test_autumn_dst_day_keeps_every_slot(
+        self, processor: CSVProcessor, tmp_path: Path
+    ):
+        """A 25-hour day repeats 02:00–02:59; both passes must be stored, so the
+        day counts as complete instead of being re-fetched forever."""
+        start = datetime(2026, 10, 25, tzinfo=VIENNA)
+        end = datetime(2026, 10, 26, tzinfo=VIENNA)
+        lines = ["Datum von;Datum bis;Energiemenge in kWh"]
+        current = start.astimezone(UTC)
+        while current < end.astimezone(UTC):
+            nxt = current + timedelta(minutes=15)
+            lines.append(
+                f"{current.astimezone(VIENNA).strftime('%d.%m.%Y %H:%M')};"
+                f"{nxt.astimezone(VIENNA).strftime('%d.%m.%Y %H:%M')};0,123"
+            )
+            current = nxt
+        csv_file = tmp_path / "autumn.csv"
+        csv_file.write_text("\n".join(lines) + "\n")
+
+        result = await processor.process_csv_file(str(csv_file))
+
+        assert result["records_processed"] == 100
 
     @pytest.mark.asyncio
     async def test_daily_summary_csv(self, processor: CSVProcessor, tmp_path: Path):
