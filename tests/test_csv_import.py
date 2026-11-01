@@ -162,9 +162,7 @@ class TestProcessCSVFile:
         assert result["records_processed"] == 2
 
     @pytest.mark.asyncio
-    async def test_autumn_dst_day_keeps_every_slot(
-        self, processor: CSVProcessor, tmp_path: Path
-    ):
+    async def test_autumn_dst_day_keeps_every_slot(self, processor: CSVProcessor, tmp_path: Path):
         """A 25-hour day repeats 02:00–02:59; both passes must be stored, so the
         day counts as complete instead of being re-fetched forever."""
         start = datetime(2026, 10, 25, tzinfo=VIENNA)
