@@ -184,6 +184,23 @@ class TestProcessCSVFile:
         assert result["records_processed"] == 100
 
     @pytest.mark.asyncio
+    async def test_first_slot_after_the_autumn_change(
+        self, processor: CSVProcessor, tmp_path: Path
+    ):
+        """The repeated hour lasts until midnight; the slot after it is not folded,
+        so it stays in order behind the last slot of the day before."""
+        csv_file = tmp_path / "after_autumn.csv"
+        csv_file.write_text(
+            "Datum von;Datum bis;Energiemenge in kWh\n"
+            "25.10.2026 23:45;26.10.2026 00:00;0,100\n"
+            "26.10.2026 00:00;26.10.2026 00:15;0,200\n"
+        )
+
+        result = await processor.process_csv_file(str(csv_file))
+
+        assert result["records_processed"] == 2
+
+    @pytest.mark.asyncio
     async def test_daily_summary_csv(self, processor: CSVProcessor, tmp_path: Path):
         csv_file = tmp_path / "daily.csv"
         csv_file.write_text("Datum;Energiemenge in kWh\n01.01.2025;12,345\n02.01.2025;10,000\n")
@@ -221,6 +238,21 @@ class TestProcessCSVFile:
 
         with pytest.raises(CSVImportError, match="No valid daily data found"):
             await processor.process_csv_file(str(csv_file))
+
+    @pytest.mark.asyncio
+    async def test_row_with_unparsable_end_date_is_skipped(
+        self, processor: CSVProcessor, tmp_path: Path
+    ):
+        csv_file = tmp_path / "bad_end.csv"
+        csv_file.write_text(
+            "Datum von;Datum bis;Energiemenge in kWh\n"
+            "01.01.2025 00:00;01.01.2025 00:15;0,123\n"
+            "01.01.2025 00:15;01.01.2025 24:99;0,456\n"
+        )
+
+        result = await processor.process_csv_file(str(csv_file))
+
+        assert result["records_processed"] == 1
 
     @pytest.mark.asyncio
     async def test_invalid_energy_value(self, processor: CSVProcessor, tmp_path: Path):
