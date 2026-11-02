@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.2] - 2026-11-02
+
+Imports both passes of the repeated autumn hour, and a day with a DST change is no longer fetched again.
+
+### Fixes
+
+- A 25-hour day keeps all its slots: rows that repeat an hour keep their second pass instead of overwriting the first, and the interval that straddles the change is no longer dropped as negative.
+- The fetch endpoint measures a day's expected slots in UTC, so a 23-hour day counts as complete instead of being re-fetched on every press.
+
+### Documentation & Links
+
+- The README says what the portal fetcher requests and that it is only for your own account; the fetch button repeats the first line.
+- [README](https://github.com/fabianwimberger/linznetz-energy-tracker#readme)
+- [Full changelog](https://github.com/fabianwimberger/linznetz-energy-tracker/compare/v1.7.1...v1.7.2)
+
+### Dependencies
+
+- Bump pytest from 9.1.1 to 9.2.0.
+- Bump pytest-asyncio from 1.4.0 to 1.4.1.
+- Bump pydantic from 2.14.1 to 2.14.2.
+- Bump mypy from 2.4.0 to 2.4.1.
+- Bump ruff from 0.17.2 to 0.17.3.
+- Move the container image to `python:3.15-alpine`.
+
 ## [v1.7.1] - 2026-10-25
 
 Cleans up the header and refreshes the README screenshots.
