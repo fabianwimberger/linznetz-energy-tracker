@@ -1,7 +1,7 @@
 """Tests for FastAPI application endpoints."""
 
 import io
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -199,21 +199,35 @@ class TestImportEndpoint:
 
 def _quarter_hour_csv_for(day: date, kwh: float = 0.123) -> bytes:
     """Generate a quarter-hourly CSV with the correct number of slots for the
-    given date, accounting for DST transitions in Europe/Vienna."""
+    given date, accounting for DST transitions in Europe/Vienna.
+
+    The slots are stepped in UTC: wall-clock arithmetic repeats or skips an hour
+    on a DST day, which would emit 96 rows for a 23- or 25-hour day.
+    """
     start = datetime(day.year, day.month, day.day, tzinfo=VIENNA_TZ)
     end = start + timedelta(days=1)
 
     rows = ["Datum von;Datum bis;Energiemenge in kWh"]
     kwh_de = f"{kwh:.3f}".replace(".", ",")
-    current = start
-    while current < end:
+    current = start.astimezone(UTC)
+    end_utc = end.astimezone(UTC)
+    while current < end_utc:
         next_slot = current + timedelta(minutes=15)
         rows.append(
-            f"{current.strftime('%d.%m.%Y %H:%M')};{next_slot.strftime('%d.%m.%Y %H:%M')};{kwh_de}"
+            f"{current.astimezone(VIENNA_TZ).strftime('%d.%m.%Y %H:%M')};"
+            f"{next_slot.astimezone(VIENNA_TZ).strftime('%d.%m.%Y %H:%M')};{kwh_de}"
         )
         current = next_slot
 
     return ("\n".join(rows) + "\n").encode("utf-8")
+
+
+@pytest.mark.parametrize("day", [date(2026, 3, 29), date(2026, 10, 25), date(2026, 6, 1)])
+def test_quarter_hour_fixture_covers_every_slot(day):
+    """The fetch endpoint calls a day complete at _expected_slots rows, so the
+    fixture must emit exactly that many on DST days too."""
+    rows = _quarter_hour_csv_for(day).decode().strip().splitlines()[1:]
+    assert len(rows) == app_module._expected_slots(day)
 
 
 class FakeFetcher:

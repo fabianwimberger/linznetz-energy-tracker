@@ -54,20 +54,33 @@ class CSVProcessor:
     ) -> datetime | None:
         """Parse German-format datetime and convert to UTC.
 
-        Handles DST fold: if the local time matches the previous row's local
-        time (autumn DST duplicate), fold=1 is set so the second occurrence
-        maps to the later UTC hour (CET, UTC+1) instead of colliding with
-        the first (CEST, UTC+2).
+        Handles DST fold: a local time that does not move forward from the
+        previous row (autumn DST duplicate) is taken as the second occurrence,
+        fold=1, so it maps to CET (UTC+1) instead of colliding with the first
+        one (CEST, UTC+2).
         """
+        naive = CSVProcessor.parse_local_naive(value)
+        if naive is None:
+            return None
+        fold = 1 if prev_local_naive is not None and naive <= prev_local_naive else 0
+        return naive.replace(fold=fold, tzinfo=VIENNA_TZ).astimezone(UTC_TZ)
+
+    @staticmethod
+    def parse_local_naive(value: str | None) -> datetime | None:
+        """Parse German-format datetime into a naive local datetime."""
         if not value:
             return None
         try:
-            naive = datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
-            fold = 1 if prev_local_naive is not None and naive == prev_local_naive else 0
-            local_dt = naive.replace(fold=fold, tzinfo=VIENNA_TZ)
-            return local_dt.astimezone(UTC_TZ)
+            return datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
         except (ValueError, TypeError):
             return None
+
+    @staticmethod
+    def local_naive_to_utc(naive: datetime | None, fold: int = 0) -> datetime | None:
+        """Convert a naive Vienna wall-clock time to UTC for the given fold."""
+        if naive is None:
+            return None
+        return naive.replace(fold=fold, tzinfo=VIENNA_TZ).astimezone(UTC_TZ)
 
     @staticmethod
     def parse_any_daily_date(value: str | None) -> date | None:
@@ -173,6 +186,10 @@ class CSVProcessor:
             next(reader)  # Skip header
 
             prev_local_naive: datetime | None = None
+            # Set when the wall clock stops moving forward on a day (autumn DST):
+            # every row from there on is the second pass of the repeated hour, so
+            # it needs fold=1 until the date changes.
+            repeated_hour = False
             for row_num, row in enumerate(reader, 2):
                 if len(row) < len(header):
                     logger.debug(f"Row {row_num}: Incomplete data, skipping")
@@ -181,8 +198,29 @@ class CSVProcessor:
 
                 row_data = {h.lower(): val for h, val in zip(header, row)}
 
-                date_from = self.parse_german_datetime(row_data.get("datum von"), prev_local_naive)
-                date_to = self.parse_german_datetime(row_data.get("datum bis"))
+                naive_from = self.parse_local_naive(row_data.get("datum von"))
+                naive_to = self.parse_local_naive(row_data.get("datum bis"))
+                if naive_from is not None:
+                    if prev_local_naive is not None:
+                        if naive_from.date() != prev_local_naive.date():
+                            repeated_hour = False
+                        elif naive_from <= prev_local_naive:
+                            repeated_hour = True
+                    prev_local_naive = naive_from
+
+                fold = 1 if repeated_hour else 0
+                fold_to = fold
+                if (
+                    not repeated_hour
+                    and naive_from is not None
+                    and naive_to is not None
+                    and naive_to <= naive_from
+                ):
+                    # The interval straddles the autumn change: it starts in CEST
+                    # and ends in CET, so only its end takes the second occurrence.
+                    fold_to = 1
+                date_from = self.local_naive_to_utc(naive_from, fold)
+                date_to = self.local_naive_to_utc(naive_to, fold_to)
                 energy_kwh = self.parse_german_decimal(row_data.get("energiemenge in kwh"))
 
                 # Validation
@@ -214,11 +252,6 @@ class CSVProcessor:
                         "date_local": date_local.isoformat(),
                         "time_slot_local": time_slot_local,
                     }
-                )
-
-                # Store naive local time for next iteration's fold detection
-                prev_local_naive = datetime.strptime(
-                    row_data.get("datum von", "").strip(), "%d.%m.%Y %H:%M"
                 )
 
         if not readings:
