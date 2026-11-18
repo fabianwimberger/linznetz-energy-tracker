@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/actions)
 [![codecov](https://codecov.io/gh/fabianwimberger/linznetz-energy-tracker/branch/main/graph/badge.svg)](https://codecov.io/gh/fabianwimberger/linznetz-energy-tracker)
-[![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/energy-tracker)
+[![Docker](https://github.com/fabianwimberger/linznetz-energy-tracker/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/fabianwimberger/linznetz-energy-tracker/pkgs/container/linznetz-energy-tracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **⚠️ Disclaimer**: This is an independent, community-created project. It is **not affiliated with, endorsed by, or sponsored by Linz Netz GmbH**. "Linz Netz" and its associated logos are trademarks of Linz Netz GmbH. Use of the name is solely for identification and compatibility purposes. Use at your own risk.
+> **Disclaimer**: This is an independent, community-created project. It is **not affiliated with, endorsed by, or sponsored by Linz Netz GmbH**. "Linz Netz" and its associated logos are trademarks of Linz Netz GmbH. Use of the name is solely for identification and compatibility purposes. Use at your own risk.
 
 A self-hosted dashboard for visualizing electricity consumption from Austrian
 smart meter (Smart Meter / Intelligenter Zähler) CSV exports.
@@ -142,7 +142,7 @@ MIT — see [LICENSE](LICENSE).
 
 | Component | License | Source |
 |-----------|---------|--------|
-| Chart.js | [MIT](https://github.com/chartjs/Chart.js/blob/master/LICENSE) | https://github.com/chartjs/Chart.js |
-| chartjs-plugin-zoom | [MIT](https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE) | https://github.com/chartjs/chartjs-plugin-zoom |
+| Chart.js | [MIT](https://github.com/chartjs/Chart.js/blob/master/LICENSE.md) | https://github.com/chartjs/Chart.js |
+| chartjs-plugin-zoom | [MIT](https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md) | https://github.com/chartjs/chartjs-plugin-zoom |
 | Flatpickr | [MIT](https://github.com/flatpickr/flatpickr/blob/master/LICENSE.md) | https://github.com/flatpickr/flatpickr |
-| FW Grotesk (Mona Sans) | [OFL-1.1](https://github.com/github/mona-sans/blob/main/LICENSE.md) | https://github.com/github/mona-sans |
+| FW Grotesk (Mona Sans) | [OFL-1.1](https://github.com/github/mona-sans/blob/main/LICENSE) | https://github.com/github/mona-sans |
